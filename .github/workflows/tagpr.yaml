@@ -1,0 +1,36 @@
+name: tagpr
+on:
+  push:
+    branches:
+    - "main"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  tagpr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: setup go
+      uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+      with:
+        go-version: stable
+    - name: checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+    - name: tagpr
+      id: tagpr
+      uses: Songmu/tagpr@b3fb89424646b06c8aa460f50307c60b6a541425 # v1.17.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/release
+      with:
+        tag: ${{ steps.tagpr.outputs.tag }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: "steps.tagpr.outputs.tag != ''"

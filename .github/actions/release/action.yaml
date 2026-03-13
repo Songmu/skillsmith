@@ -1,0 +1,22 @@
+name: release
+description: release skillsmith
+inputs:
+  tag:
+    description: tag name to be released
+    default: ''
+  token:
+    description: GitHub token
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: setup go
+    uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+    with:
+      go-version: stable
+  - name: release
+    run: |
+      make crossbuild upload
+    shell: bash
+    env:
+      GITHUB_TOKEN: ${{ inputs.token }}
