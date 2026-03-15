@@ -118,7 +118,7 @@ func run(ctx context.Context, args []string) error {
 mytool skills list
 mytool skills install
 mytool skills install --dry-run
-mytool skills install --dir ~/.codex/skills
+mytool skills install --prefix ~/.codex/skills
 mytool skills install --agent codex --scope user
 mytool skills status
 mytool skills update
@@ -130,7 +130,7 @@ mytool skills uninstall
 | オプション | 短縮 | 概要 |
 |-----------|------|------|
 | `--dry-run` | | 実際の変更を行わず、何が行われるかを表示する |
-| `--dir` | | インストール先ディレクトリを直接指定 |
+| `--prefix` | | スキルのインストール先ディレクトリを直接指定 |
 | `--agent` | | 対象 agent（`codex`, `claude`, `agents`） |
 | `--scope` | | 対象スコープ（`user`, `repo`） |
 | `--force` | | 管理外スキルの上書きを許可 |
@@ -162,9 +162,13 @@ mytool skills uninstall
 
 ### 解決の優先順位
 
-1. `--dir` — 指定時は Agent / Scope の解決を行わない
+1. `--prefix` — 指定時は Agent / Scope の解決を行わない
 2. `--agent` + `--scope`
 3. ライブラリ既定値: `claude` + `user`（→ `~/.claude/skills`）
+
+### 将来検討
+
+- スキルの別名インストール
 
 
 ## ファイルコピー方針
