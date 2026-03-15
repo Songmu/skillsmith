@@ -84,6 +84,12 @@ func TestInstallDirForScope(t *testing.T) {
 func setupFakeRepo(t *testing.T, gitFile bool) string {
 	t.Helper()
 	root := t.TempDir()
+	// Resolve symlinks so tests match os.Getwd() on macOS where
+	// /var is a symlink to /private/var.
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	gitPath := filepath.Join(root, ".git")
 	if gitFile {
 		if err := os.WriteFile(gitPath, []byte("gitdir: /some/other/path\n"), 0o644); err != nil {
