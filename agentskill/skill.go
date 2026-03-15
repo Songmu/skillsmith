@@ -94,5 +94,5 @@ func splitFrontmatter(data []byte) (yamlBytes []byte, body string, err error) {
 	yamlContent := strings.Join(lines[1:closingIdx], "\n")
 	bodyContent := strings.Join(lines[closingIdx+1:], "\n")
 
-	return []byte(yamlContent), strings.TrimLeft(bodyContent, "\n"), nil
+	return []byte(yamlContent), strings.TrimLeft(bodyContent, "\r\n"), nil
 }
