@@ -30,10 +30,11 @@ type Smith struct {
 	skillsFSVal  fs.FS
 }
 
-// skillsFS returns the effective skills FS. If the root of s.FS contains
-// exactly one directory named "skills" and no files, it is treated as an
-// embed container prefix and stripped via fs.Sub. Otherwise s.FS is used
-// as-is. The result is cached after the first call.
+// skillsFS returns the effective skills FS. If the root of s.FS contains a
+// directory named "skills" (and no other directories), it is treated as an
+// embed container prefix and stripped via fs.Sub. Files at root are ignored
+// for this check. Otherwise s.FS is used as-is.
+// The result is cached after the first call.
 func (s *Smith) skillsFS() fs.FS {
 	s.skillsFSOnce.Do(func() {
 		entries, err := fs.ReadDir(s.FS, ".")
@@ -45,11 +46,8 @@ func (s *Smith) skillsFS() fs.FS {
 		for _, e := range entries {
 			if e.IsDir() {
 				dirs = append(dirs, e.Name())
-			} else {
-				// A file at root means we should use s.FS as-is.
-				s.skillsFSVal = s.FS
-				return
 			}
+			// Files at root are ignored: e.g. README.md alongside skills/.
 		}
 		// Only strip when there is exactly one directory and it is named "skills".
 		// Any other name indicates the directory is itself a skill, not a container.
