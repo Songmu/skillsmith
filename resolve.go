@@ -28,6 +28,12 @@ func findRepoRoot() (string, error) {
 			if mode.IsDir() || mode.IsRegular() {
 				return dir, nil
 			}
+			// If .git exists but is neither a directory nor a regular file,
+			// treat this as a hard error instead of silently continuing upward.
+			if mode&os.ModeSymlink != 0 {
+				return "", fmt.Errorf(".git in %s is a symlink, which is not supported for security reasons", dir)
+			}
+			return "", fmt.Errorf(".git in %s has unsupported file type (mode: %v)", dir, mode)
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("checking .git in %s: %w", dir, err)
 		}
