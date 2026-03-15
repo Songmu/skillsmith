@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Songmu/skillsmith/agentskills"
+	"golang.org/x/mod/semver"
 )
 
 // CopyMode controls the install/update/reinstall behavior.
@@ -140,6 +141,15 @@ func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error
 	return result, nil
 }
 
+// ensureVPrefix returns v with a "v" prefix, adding one if absent.
+// semver.Compare requires the "v" prefix to work correctly.
+func ensureVPrefix(v string) string {
+	if !strings.HasPrefix(v, "v") {
+		return "v" + v
+	}
+	return v
+}
+
 // copySkill handles the copy logic for a single skill directory.
 // It returns the action taken ("installed", "updated", "reinstalled", "skipped", "warned").
 func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOptions) (action, msg string, err error) {
@@ -167,15 +177,23 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 			return "skipped", fmt.Sprintf("skill %q is not managed by skillsmith", skill.Dir), nil
 		}
 		meta, readErr := ReadMeta(dest)
-		if readErr == nil && strings.TrimPrefix(meta.Version, "v") == strings.TrimPrefix(opts.Version, "v") {
-			// Same version — nothing to do.
-			return "skipped", fmt.Sprintf("skill %q is already at version %q", skill.Dir, opts.Version), nil
+		if readErr == nil && semver.Compare(ensureVPrefix(meta.Version), ensureVPrefix(opts.Version)) >= 0 {
+			// Installed version is same or newer — nothing to do.
+			return "skipped", fmt.Sprintf("skill %q is already at version %s (>= %s)", skill.Dir, meta.Version, opts.Version), nil
 		}
 
 	case ModeReinstall:
 		if !managed {
 			if !opts.Force {
 				return "warned", fmt.Sprintf("skill %q is not managed by skillsmith; use --force to overwrite", skill.Dir), nil
+			}
+		} else {
+			// Prevent downgrade unless --force is used.
+			meta, readErr := ReadMeta(dest)
+			if readErr == nil && semver.Compare(ensureVPrefix(meta.Version), ensureVPrefix(opts.Version)) > 0 {
+				if !opts.Force {
+					return "skipped", fmt.Sprintf("skill %q has newer version %s (> %s); use --force to downgrade", skill.Dir, meta.Version, opts.Version), nil
+				}
 			}
 		}
 	}
