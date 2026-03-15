@@ -62,7 +62,7 @@ func TestInstallDirForScope(t *testing.T) {
 
 		t.Cleanup(func() {
 			if err := os.Chdir(origWD); err != nil {
-				t.Fatalf("failed to restore working directory: %v", err)
+				t.Errorf("failed to restore working directory: %v", err)
 			}
 		})
 
