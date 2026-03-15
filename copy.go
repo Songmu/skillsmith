@@ -108,14 +108,23 @@ func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error
 	skills, discoverErr := agentskill.Discover(src)
 	result := &CopyResult{}
 
+	var fatalErr error
 	eachError(discoverErr, func(e error) {
 		var se *agentskill.SkillError
 		if errors.As(e, &se) {
 			result.add(se.Dir, "warned", se.Err.Error())
+			return
+		}
+		// Treat non-SkillError discovery failures as fatal.
+		if fatalErr == nil {
+			fatalErr = e
 		} else {
-			result.add("", "warned", e.Error())
+			fatalErr = errors.Join(fatalErr, e)
 		}
 	})
+	if fatalErr != nil {
+		return result, fmt.Errorf("discovering skills: %w", fatalErr)
+	}
 
 	for _, skill := range skills {
 		action, msg, err := copySkill(src, destDir, skill, opts)
