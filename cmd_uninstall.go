@@ -30,14 +30,19 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 	}
 
 	skills, discoverErr := agentskills.Discover(s.fs)
-	if discoverErr != nil {
-		var skillErr *agentskills.SkillError
-		if !errors.As(discoverErr, &skillErr) {
-			return discoverErr
-		}
-		eachError(discoverErr, func(e error) {
+	var fatalErr error
+	eachError(discoverErr, func(e error) {
+		var se *agentskills.SkillError
+		if errors.As(e, &se) {
 			fmt.Fprintf(errW, "warning: %v\n", e)
-		})
+			return
+		}
+		if fatalErr == nil {
+			fatalErr = e
+		}
+	})
+	if fatalErr != nil {
+		return fatalErr
 	}
 
 	for _, skill := range skills {
