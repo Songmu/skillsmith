@@ -48,6 +48,10 @@ func New(name, version string, skillFS fs.FS) (*Smith, error) {
 	// Store without "v" prefix.
 	stored := strings.TrimPrefix(vv, "v")
 
+	if skillFS == nil {
+		return nil, errors.New("skill filesystem cannot be nil")
+	}
+
 	// FS auto-detection: strip "skills/" prefix when it is the only directory.
 	detectedFS := skillFS
 	entries, err := fs.ReadDir(skillFS, ".")
