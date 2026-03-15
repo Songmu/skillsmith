@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Songmu/skillsmith/agentskill"
+	"github.com/Songmu/skillsmith/agentskills"
 )
 
 // CopyMode controls the install/update/reinstall behavior.
@@ -108,12 +108,12 @@ func eachError(err error, fn func(error)) {
 // CopySkills copies skills from src (an fs.FS whose top-level directories are
 // skill directories) into destDir.
 func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error) {
-	skills, discoverErr := agentskill.Discover(src)
+	skills, discoverErr := agentskills.Discover(src)
 	result := &CopyResult{}
 
 	var fatalErr error
 	eachError(discoverErr, func(e error) {
-		var se *agentskill.SkillError
+		var se *agentskills.SkillError
 		if errors.As(e, &se) {
 			result.add(se.Dir, "warned", se.Err.Error())
 			return
@@ -142,7 +142,7 @@ func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error
 
 // copySkill handles the copy logic for a single skill directory.
 // It returns the action taken ("installed", "updated", "reinstalled", "skipped", "warned").
-func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOptions) (action, msg string, err error) {
+func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOptions) (action, msg string, err error) {
 	dest := filepath.Join(destDir, skill.Dir)
 	managed := IsManaged(dest)
 

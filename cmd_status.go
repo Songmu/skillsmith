@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Songmu/skillsmith/agentskill"
+	"github.com/Songmu/skillsmith/agentskills"
 )
 
 func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer) error {
@@ -29,10 +29,10 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 		return err
 	}
 
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	var fatalErr error
 	eachError(discoverErr, func(e error) {
-		var se *agentskill.SkillError
+		var se *agentskills.SkillError
 		if errors.As(e, &se) {
 			fmt.Fprintf(errW, "warning: %v\n", e)
 			return

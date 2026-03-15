@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Songmu/skillsmith/agentskill"
+	"github.com/Songmu/skillsmith/agentskills"
 )
 
 func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writer) error {
@@ -29,9 +29,9 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	if discoverErr != nil {
-		var skillErr *agentskill.SkillError
+		var skillErr *agentskills.SkillError
 		if !errors.As(discoverErr, &skillErr) {
 			return discoverErr
 		}

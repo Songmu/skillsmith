@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/Songmu/skillsmith/agentskill"
+	"github.com/Songmu/skillsmith/agentskills"
 )
 
 var testSkillFS = fstest.MapFS{
@@ -247,7 +247,7 @@ func TestNew_AutoDetect_SingleDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	if discoverErr != nil {
 		t.Fatalf("Discover: %v", discoverErr)
 	}
@@ -273,7 +273,7 @@ func TestNew_AutoDetect_PreStripped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	if discoverErr != nil {
 		t.Fatalf("Discover: %v", discoverErr)
 	}
@@ -299,7 +299,7 @@ func TestNew_AutoDetect_MixedRoot(t *testing.T) {
 	if _, statErr := fs.Stat(s.fs, "README.md"); statErr != nil {
 		t.Errorf("expected README.md at root of s.fs for mixed-root FS, got: %v", statErr)
 	}
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	if discoverErr != nil {
 		t.Fatalf("Discover: %v", discoverErr)
 	}
@@ -321,7 +321,7 @@ func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	skills, discoverErr := agentskill.Discover(s.fs)
+	skills, discoverErr := agentskills.Discover(s.fs)
 	if discoverErr != nil {
 		t.Fatalf("Discover: %v", discoverErr)
 	}

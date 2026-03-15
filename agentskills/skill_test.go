@@ -1,4 +1,4 @@
-package agentskill
+package agentskills
 
 import (
 	"strings"
