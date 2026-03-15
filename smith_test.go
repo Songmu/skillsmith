@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"io/fs"
 )
 
 var testSkillFS = fstest.MapFS{
@@ -242,14 +243,8 @@ func TestNew_AutoDetect_SingleDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	out := &bytes.Buffer{}
-	s.OutWriter = out
-	s.ErrWriter = &bytes.Buffer{}
-	if err := s.Run(context.Background(), []string{"list"}); err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if !strings.Contains(out.String(), "demo-skill") {
-		t.Errorf("expected 'demo-skill' in list output after auto-detect strip, got: %q", out.String())
+	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
+		t.Fatalf("expected 'demo-skill' at root of skill FS after auto-detect strip, stat error: %v", err)
 	}
 }
 
@@ -260,14 +255,8 @@ func TestNew_AutoDetect_PreStripped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	out := &bytes.Buffer{}
-	s.OutWriter = out
-	s.ErrWriter = &bytes.Buffer{}
-	if err := s.Run(context.Background(), []string{"list"}); err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if !strings.Contains(out.String(), "demo-skill") {
-		t.Errorf("expected 'demo-skill' in list output for pre-stripped FS, got: %q", out.String())
+	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
+		t.Fatalf("expected 'demo-skill' at root of pre-stripped skill FS, stat error: %v", err)
 	}
 }
 
@@ -278,14 +267,8 @@ func TestNew_AutoDetect_MixedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	out := &bytes.Buffer{}
-	s.OutWriter = out
-	s.ErrWriter = &bytes.Buffer{}
-	if err := s.Run(context.Background(), []string{"list"}); err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if !strings.Contains(out.String(), "demo-skill") {
-		t.Errorf("expected 'demo-skill' in list output for mixed-root FS, got: %q", out.String())
+	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
+		t.Fatalf("expected 'demo-skill' at root of mixed-root skill FS, stat error: %v", err)
 	}
 }
 
@@ -296,14 +279,8 @@ func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	out := &bytes.Buffer{}
-	s.OutWriter = out
-	s.ErrWriter = &bytes.Buffer{}
-	if err := s.Run(context.Background(), []string{"list"}); err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if !strings.Contains(out.String(), "demo-skill") {
-		t.Errorf("expected 'demo-skill' in list output after auto-detect strip (with file at root), got: %q", out.String())
+	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
+		t.Fatalf("expected 'demo-skill' at root of skill FS after auto-detect strip (with file at root), stat error: %v", err)
 	}
 }
 
