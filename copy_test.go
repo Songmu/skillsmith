@@ -167,6 +167,31 @@ func TestCopySkills_Update_HigherVersion(t *testing.T) {
 	}
 }
 
+func TestCopySkills_Update_VersionWithoutVPrefix(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	// Initial install without a leading "v" in the version string.
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "1.0.0"}); err != nil {
+		t.Fatalf("install (no v prefix): %v", err)
+	}
+
+	// Update to a higher version, also without a leading "v".
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "2.0.0"})
+	if err != nil {
+		t.Fatalf("update (no v prefix): %v", err)
+	}
+
+	if len(result.Installed()) != 1 || result.Installed()[0].Action != "updated" {
+		t.Errorf("expected 1 updated skill when using versions without v prefix, got: %v", result.Installed())
+	}
+
+	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+	if meta.Version != "v2.0.0" {
+		t.Errorf("expected normalized version v2.0.0 after update, got %q", meta.Version)
+	}
+}
+
 func TestCopySkills_Update_LowerVersion(t *testing.T) {
 	src := newTestFS()
 	dest := t.TempDir()
