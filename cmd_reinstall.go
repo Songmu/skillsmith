@@ -39,7 +39,11 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 	for _, a := range result.Actions {
 		switch a.Action {
 		case "reinstalled":
-			fmt.Fprintf(out, "reinstalled: %s\n", a.Dir)
+			if cf.dryRun {
+				fmt.Fprintln(out, a.Message)
+			} else {
+				fmt.Fprintf(out, "reinstalled: %s\n", a.Dir)
+			}
 		case "warned":
 			fmt.Fprintf(errW, "warning:     %s — %s\n", a.Dir, a.Message)
 		}

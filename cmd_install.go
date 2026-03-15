@@ -39,7 +39,11 @@ func (s *Smith) cmdInstall(_ context.Context, args []string, out, errW io.Writer
 	for _, a := range result.Actions {
 		switch a.Action {
 		case "installed":
-			fmt.Fprintf(out, "installed: %s\n", a.Dir)
+			if cf.dryRun {
+				fmt.Fprintln(out, a.Message)
+			} else {
+				fmt.Fprintf(out, "installed: %s\n", a.Dir)
+			}
 		case "skipped":
 			fmt.Fprintf(out, "skipped:   %s — %s\n", a.Dir, a.Message)
 		case "warned":
