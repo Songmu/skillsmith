@@ -1,8 +1,6 @@
 package agentskill
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
 	"io"
 	"strings"
@@ -75,15 +73,7 @@ func Parse(r io.Reader) (*Skill, error) {
 // (without delimiters) and the remaining body text.
 // It returns an error when no valid frontmatter block is found.
 func splitFrontmatter(data []byte) (yamlBytes []byte, body string, err error) {
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	if scanErr := scanner.Err(); scanErr != nil {
-		return nil, "", scanErr
-	}
+	lines := strings.Split(string(data), "\n")
 
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
 		return nil, "", errors.New("SKILL.md: missing frontmatter opening delimiter")
