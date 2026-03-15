@@ -48,12 +48,17 @@ update, and manage your tool's agent skills with commands like:
 mytool skills list
 mytool skills install
 mytool skills install --dry-run
-mytool skills install --agent codex --scope user
+mytool skills install --scope user
+mytool skills install --prefix ~/.agents/skills
 mytool skills status
 mytool skills update
 mytool skills reinstall
 mytool skills uninstall
 ```
+
+By default, skills are installed into `~/.agents/skills`. You can override this
+location with `--prefix`, control the target scope with `--scope`, and use
+`--dry-run` or `--force` to preview or force installations.
 
 ### Key features
 
