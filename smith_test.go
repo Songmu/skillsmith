@@ -39,57 +39,156 @@ func newTestSmith(t *testing.T, fsys fstest.MapFS) (*Smith, *bytes.Buffer, *byte
 	return s, out, errW
 }
 
-func TestNew_InvalidVersion(t *testing.T) {
-	_, err := New("tool", "not-a-version", testSkillFS)
-	if err == nil {
-		t.Error("expected error for invalid version, got nil")
+func TestNew_VersionValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		version     string
+		wantErr     bool
+		wantVersion string
+	}{
+		{
+			name:    "invalid_version",
+			version: "not-a-version",
+			wantErr: true,
+		},
+		{
+			name:        "valid_with_v_prefix",
+			version:     "v1.2.3",
+			wantVersion: "v1.2.3",
+		},
+		{
+			name:        "valid_without_v_prefix",
+			version:     "1.2.3",
+			wantVersion: "1.2.3",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := New("tool", tt.version, testSkillFS)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			if s.Version() != tt.wantVersion {
+				t.Errorf("Version() = %q, want %q", s.Version(), tt.wantVersion)
+			}
+		})
 	}
 }
 
-func TestNew_ValidVersion_WithV(t *testing.T) {
-	s, err := New("tool", "v1.2.3", testSkillFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
+func TestNew_AutoDetect(t *testing.T) {
+	tests := []struct {
+		name          string
+		fsys          fstest.MapFS
+		wantSkillDir  string
+		// wantSkillsDir indicates whether a "skills/" directory should remain at the root
+		// after auto-detection. If false, "skills/" is expected to be stripped/absent.
+		wantSkillsDir bool
+		wantReadme    bool // true means README.md should be present at root
+	}{
+		{
+			name:          "single_dir_strips_skills_prefix",
+			fsys:          wrappedSkillFS,
+			wantSkillDir:  "demo-skill",
+			wantSkillsDir: false,
+		},
+		{
+			name:         "pre_stripped_uses_as_is",
+			fsys:         testSkillFS,
+			wantSkillDir: "demo-skill",
+		},
+		{
+			name:         "mixed_root_uses_as_is",
+			fsys:         mixedRootFS,
+			wantSkillDir: "demo-skill",
+			wantReadme:   true,
+		},
+		{
+			name:          "skills_dir_with_file_at_root_strips_skills",
+			fsys:          wrappedWithFileFS,
+			wantSkillDir:  "demo-skill",
+			wantSkillsDir: false,
+		},
 	}
-	if s.Version() != "v1.2.3" {
-		t.Errorf("expected version stored as-is %q, got %q", "v1.2.3", s.Version())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := New("test", "1.0.0", tt.fsys)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			skills, discoverErr := agentskills.Discover(s.fs)
+			if discoverErr != nil {
+				t.Fatalf("Discover: %v", discoverErr)
+			}
+			found := false
+			for _, sk := range skills {
+				if sk.Dir == tt.wantSkillDir {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("expected %q in s.fs after auto-detect, got: %v", tt.wantSkillDir, skills)
+			}
+			if !tt.wantSkillsDir {
+				if _, statErr := fs.Stat(s.fs, "skills"); statErr == nil {
+					t.Error("'skills' dir should have been stripped from root, but it still exists")
+				}
+			}
+			if tt.wantReadme {
+				if _, statErr := fs.Stat(s.fs, "README.md"); statErr != nil {
+					t.Errorf("expected README.md at root of s.fs, got: %v", statErr)
+				}
+			}
+		})
 	}
 }
 
-func TestNew_ValidVersion_WithoutV(t *testing.T) {
-	s, err := New("tool", "1.2.3", testSkillFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
+func TestSmith_Run_Dispatch(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		wantErr        bool
+		wantErrOutput  string
+	}{
+		{
+			name:    "unknown_subcommand",
+			args:    []string{"unknown"},
+			wantErr: true,
+		},
+		{
+			name:    "no_args",
+			args:    []string{},
+			wantErr: false,
+		},
+		{
+			name:          "help_flag",
+			args:          []string{"--help"},
+			wantErr:       false,
+			wantErrOutput: "install",
+		},
 	}
-	if s.Version() != "1.2.3" {
-		t.Errorf("expected version %q stored without 'v', got %q", "1.2.3", s.Version())
-	}
-}
-
-func TestSmith_Run_UnknownSubcommand(t *testing.T) {
-	s, _, _ := newTestSmith(t, testSkillFS)
-	err := s.Run(context.Background(), []string{"unknown"})
-	if err == nil {
-		t.Error("expected error for unknown subcommand, got nil")
-	}
-}
-
-func TestSmith_Run_NoArgs(t *testing.T) {
-	s, _, _ := newTestSmith(t, testSkillFS)
-	err := s.Run(context.Background(), []string{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestSmith_Run_Help(t *testing.T) {
-	s, _, errW := newTestSmith(t, testSkillFS)
-	err := s.Run(context.Background(), []string{"--help"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !strings.Contains(errW.String(), "install") {
-		t.Errorf("help output does not mention 'install', got: %q", errW.String())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, _, errW := newTestSmith(t, testSkillFS)
+			err := s.Run(context.Background(), tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tt.wantErrOutput != "" && !strings.Contains(errW.String(), tt.wantErrOutput) {
+				t.Errorf("help output does not contain %q, got: %q", tt.wantErrOutput, errW.String())
+			}
+		})
 	}
 }
 
@@ -238,104 +337,4 @@ license: MIT
 Teaches the agent how to use demo.
 `),
 	},
-}
-
-// TestNew_AutoDetect_SingleDir verifies that New strips the "skills/" prefix when
-// it is the only directory at the root of skillFS.
-func TestNew_AutoDetect_SingleDir(t *testing.T) {
-	s, err := New("test", "1.0.0", wrappedSkillFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	skills, discoverErr := agentskills.Discover(s.fs)
-	if discoverErr != nil {
-		t.Fatalf("Discover: %v", discoverErr)
-	}
-	found := false
-	for _, sk := range skills {
-		if sk.Dir == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of s.fs after auto-detect strip, got: %v", skills)
-	}
-	// Verify "skills" wrapper dir was stripped.
-	if _, statErr := fs.Stat(s.fs, "skills"); statErr == nil {
-		t.Error("'skills' dir should have been stripped from root, but it still exists")
-	}
-}
-
-// TestNew_AutoDetect_PreStripped verifies that New uses the FS as-is when skills
-// are already at the root (no "skills/" prefix to strip).
-func TestNew_AutoDetect_PreStripped(t *testing.T) {
-	s, err := New("test", "1.0.0", testSkillFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	skills, discoverErr := agentskills.Discover(s.fs)
-	if discoverErr != nil {
-		t.Fatalf("Discover: %v", discoverErr)
-	}
-	found := false
-	for _, sk := range skills {
-		if sk.Dir == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of s.fs for pre-stripped FS, got: %v", skills)
-	}
-}
-
-// TestNew_AutoDetect_MixedRoot verifies that New uses the FS as-is when the only
-// directory at root is not named "skills".
-func TestNew_AutoDetect_MixedRoot(t *testing.T) {
-	s, err := New("test", "1.0.0", mixedRootFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	// FS used as-is: README.md must still be present at root.
-	if _, statErr := fs.Stat(s.fs, "README.md"); statErr != nil {
-		t.Errorf("expected README.md at root of s.fs for mixed-root FS, got: %v", statErr)
-	}
-	skills, discoverErr := agentskills.Discover(s.fs)
-	if discoverErr != nil {
-		t.Fatalf("Discover: %v", discoverErr)
-	}
-	found := false
-	for _, sk := range skills {
-		if sk.Dir == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' discoverable in s.fs for mixed-root FS, got: %v", skills)
-	}
-}
-
-// TestNew_AutoDetect_SkillsDirWithFileAtRoot verifies that New strips the "skills/"
-// prefix even when files are present alongside it at root.
-func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
-	s, err := New("test", "1.0.0", wrappedWithFileFS)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	skills, discoverErr := agentskills.Discover(s.fs)
-	if discoverErr != nil {
-		t.Fatalf("Discover: %v", discoverErr)
-	}
-	found := false
-	for _, sk := range skills {
-		if sk.Dir == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of s.fs after auto-detect strip (with file at root), got: %v", skills)
-	}
-	// Verify "skills" wrapper dir was stripped.
-	if _, statErr := fs.Stat(s.fs, "skills"); statErr == nil {
-		t.Error("'skills' dir should have been stripped from root, but it still exists")
-	}
 }

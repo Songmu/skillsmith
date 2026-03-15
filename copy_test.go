@@ -24,280 +24,284 @@ body
 }
 
 func TestCopySkills_Install(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	result, err := CopySkills(src, dest, CopyOptions{
-		Mode:    ModeInstall,
-		Name:    "tool",
-		Version: "v1.0.0",
-	})
-	if err != nil {
-		t.Fatalf("CopySkills: %v", err)
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, dest string)
+		opts          CopyOptions
+		wantInstalled int
+		wantSkipped   int
+		wantWarned    int
+		checkMeta     func(t *testing.T, dest string)
+	}{
+		{
+			name: "fresh_install",
+			opts: CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"},
+			wantInstalled: 1,
+			checkMeta: func(t *testing.T, dest string) {
+				if _, err := os.Stat(filepath.Join(dest, "mytool", "SKILL.md")); err != nil {
+					t.Errorf("SKILL.md not found after install: %v", err)
+				}
+				if !IsManaged(filepath.Join(dest, "mytool")) {
+					t.Error(".skillsmith.json not found after install")
+				}
+				meta, err := ReadMeta(filepath.Join(dest, "mytool"))
+				if err != nil {
+					t.Fatalf("ReadMeta: %v", err)
+				}
+				if meta.InstalledBy != "tool" {
+					t.Errorf("InstalledBy = %q, want %q", meta.InstalledBy, "tool")
+				}
+				if meta.Version != "v1.0.0" {
+					t.Errorf("Version = %q, want %q", meta.Version, "v1.0.0")
+				}
+			},
+		},
+		{
+			name: "skips_existing",
+			setup: func(t *testing.T, dest string) {
+				if _, err := CopySkills(newTestFS(), dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"}); err != nil {
+					t.Fatalf("first install: %v", err)
+				}
+			},
+			opts:        CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2"},
+			wantSkipped: 1,
+			checkMeta: func(t *testing.T, dest string) {
+				meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+				if meta.Version != "v1" {
+					t.Errorf("expected version to remain v1, got %q", meta.Version)
+				}
+			},
+		},
+		{
+			name: "warns_unmanaged",
+			setup: func(t *testing.T, dest string) {
+				if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			opts:       CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"},
+			wantWarned: 1,
+		},
+		{
+			name: "force_unmanaged",
+			setup: func(t *testing.T, dest string) {
+				if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			opts:          CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1", Force: true},
+			wantInstalled: 1,
+		},
 	}
-
-	installed := result.Installed()
-	if len(installed) != 1 || installed[0].Dir != "mytool" {
-		t.Errorf("expected 1 installed skill, got: %v", installed)
-	}
-
-	// SKILL.md should be on disk.
-	if _, err := os.Stat(filepath.Join(dest, "mytool", "SKILL.md")); err != nil {
-		t.Errorf("SKILL.md not found after install: %v", err)
-	}
-
-	// .skillsmith.json should be on disk.
-	if !IsManaged(filepath.Join(dest, "mytool")) {
-		t.Error(".skillsmith.json not found after install")
-	}
-
-	meta, err := ReadMeta(filepath.Join(dest, "mytool"))
-	if err != nil {
-		t.Fatalf("ReadMeta: %v", err)
-	}
-	if meta.InstalledBy != "tool" {
-		t.Errorf("InstalledBy = %q, want %q", meta.InstalledBy, "tool")
-	}
-	if meta.Version != "v1.0.0" {
-		t.Errorf("Version = %q, want %q", meta.Version, "v1.0.0")
-	}
-}
-
-func TestCopySkills_Install_SkipsExisting(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	// First install.
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"}); err != nil {
-		t.Fatalf("first install: %v", err)
-	}
-
-	// Second install should skip.
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2"})
-	if err != nil {
-		t.Fatalf("second install: %v", err)
-	}
-
-	if len(result.Skipped()) != 1 {
-		t.Errorf("expected 1 skipped skill on second install, got: %v", result.Skipped())
-	}
-
-	// Version should still be v1 (not overwritten).
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v1" {
-		t.Errorf("expected version to remain v1, got %q", meta.Version)
-	}
-}
-
-func TestCopySkills_Install_WarnsUnmanaged(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	// Create an unmanaged skill directory (no .skillsmith.json).
-	if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"})
-	if err != nil {
-		t.Fatalf("CopySkills: %v", err)
-	}
-
-	if len(result.Warned()) != 1 {
-		t.Errorf("expected 1 warned skill for unmanaged, got: %v", result.Warned())
-	}
-}
-
-func TestCopySkills_Install_ForceUnmanaged(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1", Force: true})
-	if err != nil {
-		t.Fatalf("CopySkills: %v", err)
-	}
-
-	if len(result.Installed()) != 1 {
-		t.Errorf("expected 1 installed skill with --force, got: %v", result.Installed())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := newTestFS()
+			dest := t.TempDir()
+			if tt.setup != nil {
+				tt.setup(t, dest)
+			}
+			result, err := CopySkills(src, dest, tt.opts)
+			if err != nil {
+				t.Fatalf("CopySkills: %v", err)
+			}
+			if len(result.Installed()) != tt.wantInstalled {
+				t.Errorf("installed = %d, want %d; skills: %v", len(result.Installed()), tt.wantInstalled, result.Installed())
+			}
+			if len(result.Skipped()) != tt.wantSkipped {
+				t.Errorf("skipped = %d, want %d; skills: %v", len(result.Skipped()), tt.wantSkipped, result.Skipped())
+			}
+			if len(result.Warned()) != tt.wantWarned {
+				t.Errorf("warned = %d, want %d; skills: %v", len(result.Warned()), tt.wantWarned, result.Warned())
+			}
+			if tt.checkMeta != nil {
+				tt.checkMeta(t, dest)
+			}
+		})
 	}
 }
 
-func TestCopySkills_Update_SameVersion(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
+func TestCopySkills_Update(t *testing.T) {
+	tests := []struct {
+		name          string
+		installVer    string
+		updateVer     string
+		wantInstalled int
+		wantAction    string
+		wantSkipped   int
+		wantVersion   string
+	}{
+		{
+			name:          "higher_version",
+			installVer:    "v1.0.0",
+			updateVer:     "v2.0.0",
+			wantInstalled: 1,
+			wantAction:    "updated",
+			wantVersion:   "v2.0.0",
+		},
+		{
+			name:        "same_version_skipped",
+			installVer:  "v1.0.0",
+			updateVer:   "v1.0.0",
+			wantSkipped: 1,
+		},
+		{
+			name:        "lower_version_skipped",
+			installVer:  "v2.0.0",
+			updateVer:   "v1.0.0",
+			wantSkipped: 1,
+			wantVersion: "v2.0.0",
+		},
+		{
+			name:          "higher_version_without_v_prefix",
+			installVer:    "1.0.0",
+			updateVer:     "2.0.0",
+			wantInstalled: 1,
+			wantAction:    "updated",
+			wantVersion:   "2.0.0",
+		},
 	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v1.0.0"})
-	if err != nil {
-		t.Fatalf("update: %v", err)
-	}
-
-	if len(result.Skipped()) != 1 {
-		t.Errorf("expected 1 skipped skill (same version), got: %v", result.Skipped())
-	}
-}
-
-func TestCopySkills_Update_HigherVersion(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v2.0.0"})
-	if err != nil {
-		t.Fatalf("update: %v", err)
-	}
-
-	if len(result.Installed()) != 1 || result.Installed()[0].Action != "updated" {
-		t.Errorf("expected 1 updated skill, got: %v", result.Installed())
-	}
-
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v2.0.0" {
-		t.Errorf("expected version v2.0.0 after update, got %q", meta.Version)
-	}
-}
-
-func TestCopySkills_Update_VersionWithoutVPrefix(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	// Initial install without a leading "v" in the version string.
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "1.0.0"}); err != nil {
-		t.Fatalf("install (no v prefix): %v", err)
-	}
-
-	// Update to a higher version, also without a leading "v".
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "2.0.0"})
-	if err != nil {
-		t.Fatalf("update (no v prefix): %v", err)
-	}
-
-	if len(result.Installed()) != 1 || result.Installed()[0].Action != "updated" {
-		t.Errorf("expected 1 updated skill when using versions without v prefix, got: %v", result.Installed())
-	}
-
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "2.0.0" {
-		t.Errorf("expected version 2.0.0 after update, got %q", meta.Version)
-	}
-}
-
-func TestCopySkills_Update_LowerVersion(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-
-	// Attempt to "update" to a lower version — should be skipped.
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v1.0.0"})
-	if err != nil {
-		t.Fatalf("update: %v", err)
-	}
-
-	if len(result.Skipped()) != 1 {
-		t.Errorf("expected 1 skipped skill (downgrade attempt), got: %v", result.Skipped())
-	}
-
-	// Version on disk should remain v2.0.0.
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v2.0.0" {
-		t.Errorf("expected version to remain v2.0.0, got %q", meta.Version)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := newTestFS()
+			dest := t.TempDir()
+			if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: tt.installVer}); err != nil {
+				t.Fatalf("install: %v", err)
+			}
+			result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: tt.updateVer})
+			if err != nil {
+				t.Fatalf("update: %v", err)
+			}
+			if len(result.Installed()) != tt.wantInstalled {
+				t.Errorf("installed = %d, want %d; skills: %v", len(result.Installed()), tt.wantInstalled, result.Installed())
+			}
+			if tt.wantAction != "" {
+				gotAction := ""
+				if len(result.Installed()) > 0 {
+					gotAction = result.Installed()[0].Action
+				}
+				if gotAction != tt.wantAction {
+					t.Errorf("action = %q, want %q", gotAction, tt.wantAction)
+				}
+			}
+			if len(result.Skipped()) != tt.wantSkipped {
+				t.Errorf("skipped = %d, want %d; skills: %v", len(result.Skipped()), tt.wantSkipped, result.Skipped())
+			}
+			if tt.wantVersion != "" {
+				meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+				if meta.Version != tt.wantVersion {
+					t.Errorf("version = %q, want %q", meta.Version, tt.wantVersion)
+				}
+			}
+		})
 	}
 }
 
-func TestCopySkills_Reinstall_LowerVersion_Skipped(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
+func TestCopySkills_Reinstall(t *testing.T) {
+	tests := []struct {
+		name          string
+		installVer    string
+		reinstallVer  string
+		force         bool
+		wantInstalled int
+		wantAction    string
+		wantSkipped   int
+		wantWarned    int
+		wantVersion   string
+		setup         func(t *testing.T, src fstest.MapFS, dest string)
+	}{
+		{
+			name:          "same_version",
+			installVer:    "v1.0.0",
+			reinstallVer:  "v1.0.0",
+			wantInstalled: 1,
+			wantAction:    "reinstalled",
+		},
+		{
+			name:          "higher_version",
+			installVer:    "v1.0.0",
+			reinstallVer:  "v2.0.0",
+			wantInstalled: 1,
+			wantAction:    "reinstalled",
+			wantVersion:   "v2.0.0",
+		},
+		{
+			name:         "downgrade_skipped",
+			installVer:   "v2.0.0",
+			reinstallVer: "v1.0.0",
+			wantSkipped:  1,
+		},
+		{
+			name:          "force_downgrade",
+			installVer:    "v2.0.0",
+			reinstallVer:  "v1.0.0",
+			force:         true,
+			wantInstalled: 1,
+			wantAction:    "reinstalled",
+			wantVersion:   "v1.0.0",
+		},
+		{
+			name: "skips_unmanaged",
+			setup: func(t *testing.T, src fstest.MapFS, dest string) {
+				if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			reinstallVer: "v1.0.0",
+			wantWarned:   1,
+		},
+		{
+			name: "force_unmanaged",
+			setup: func(t *testing.T, src fstest.MapFS, dest string) {
+				if err := os.MkdirAll(filepath.Join(dest, "mytool"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			reinstallVer:  "v1.0.0",
+			force:         true,
+			wantInstalled: 1,
+			wantAction:    "reinstalled",
+		},
 	}
-
-	// Reinstall with lower version — should be skipped without --force.
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0"})
-	if err != nil {
-		t.Fatalf("reinstall: %v", err)
-	}
-
-	if len(result.Skipped()) != 1 {
-		t.Errorf("expected 1 skipped skill (downgrade protection), got: %v", result.Skipped())
-	}
-}
-
-func TestCopySkills_Reinstall_LowerVersion_Force(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-
-	// Reinstall with lower version + --force — should succeed.
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0", Force: true})
-	if err != nil {
-		t.Fatalf("reinstall: %v", err)
-	}
-
-	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
-		t.Errorf("expected 1 reinstalled skill with --force, got: %v", result.Installed())
-	}
-
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v1.0.0" {
-		t.Errorf("expected version v1.0.0 after forced reinstall, got %q", meta.Version)
-	}
-}
-
-func TestCopySkills_Reinstall_SameVersion(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0"})
-	if err != nil {
-		t.Fatalf("reinstall: %v", err)
-	}
-
-	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
-		t.Errorf("expected 1 reinstalled skill (same version), got: %v", result.Installed())
-	}
-}
-
-func TestCopySkills_Reinstall_HigherVersion(t *testing.T) {
-	src := newTestFS()
-	dest := t.TempDir()
-
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v2.0.0"})
-	if err != nil {
-		t.Fatalf("reinstall: %v", err)
-	}
-
-	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
-		t.Errorf("expected 1 reinstalled skill (higher version), got: %v", result.Installed())
-	}
-
-	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v2.0.0" {
-		t.Errorf("expected version v2.0.0 after reinstall, got %q", meta.Version)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := newTestFS()
+			dest := t.TempDir()
+			if tt.setup != nil {
+				tt.setup(t, src, dest)
+			} else if tt.installVer != "" {
+				if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: tt.installVer}); err != nil {
+					t.Fatalf("install: %v", err)
+				}
+			}
+			result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: tt.reinstallVer, Force: tt.force})
+			if err != nil {
+				t.Fatalf("CopySkills reinstall: %v", err)
+			}
+			if len(result.Installed()) != tt.wantInstalled {
+				t.Errorf("installed = %d, want %d; skills: %v", len(result.Installed()), tt.wantInstalled, result.Installed())
+			}
+			if tt.wantAction != "" {
+				gotAction := ""
+				if len(result.Installed()) > 0 {
+					gotAction = result.Installed()[0].Action
+				}
+				if gotAction != tt.wantAction {
+					t.Errorf("action = %q, want %q", gotAction, tt.wantAction)
+				}
+			}
+			if len(result.Skipped()) != tt.wantSkipped {
+				t.Errorf("skipped = %d, want %d; skills: %v", len(result.Skipped()), tt.wantSkipped, result.Skipped())
+			}
+			if len(result.Warned()) != tt.wantWarned {
+				t.Errorf("warned = %d, want %d; skills: %v", len(result.Warned()), tt.wantWarned, result.Warned())
+			}
+			if tt.wantVersion != "" {
+				meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+				if meta.Version != tt.wantVersion {
+					t.Errorf("version = %q, want %q", meta.Version, tt.wantVersion)
+				}
+			}
+		})
 	}
 }
 
