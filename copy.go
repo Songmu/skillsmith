@@ -197,11 +197,11 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 			if cmp, ok := compareVersionsSafe(meta.Version, opts.Version); ok {
 				// Installed version is same or newer — nothing to do.
 				if cmp >= 0 {
-					return "skipped", fmt.Sprintf("skill %q is already at version %s (>= %s)", skill.Dir, meta.Version, opts.Version), nil
+					return "skipped", fmt.Sprintf("skill %q is already at version %q (>= %q)", skill.Dir, meta.Version, opts.Version), nil
 				}
 			} else if meta.Version == opts.Version {
 				// Non-semver versions: fall back to equality-only behavior.
-				return "skipped", fmt.Sprintf("skill %q is already at version %s", skill.Dir, meta.Version), nil
+				return "skipped", fmt.Sprintf("skill %q is already at version %q", skill.Dir, meta.Version), nil
 			}
 		}
 
@@ -218,7 +218,7 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 			if readErr == nil {
 				if cmp, ok := compareVersionsSafe(meta.Version, opts.Version); ok && cmp > 0 {
 					if !opts.Force {
-						return "skipped", fmt.Sprintf("skill %q has newer version %s (> %s); use --force to downgrade", skill.Dir, meta.Version, opts.Version), nil
+						return "skipped", fmt.Sprintf("skill %q has newer version %q (> %q); use --force to downgrade", skill.Dir, meta.Version, opts.Version), nil
 					}
 				}
 			}
