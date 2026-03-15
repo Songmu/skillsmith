@@ -56,11 +56,11 @@ func TestValidate(t *testing.T) {
 			if result.OK() != tt.wantOK {
 				t.Errorf("OK() = %v, want %v; errors: %v", result.OK(), tt.wantOK, result.Errors)
 			}
-			if tt.wantWarnings > 0 && len(result.Warnings) == 0 {
-				t.Errorf("expected at least %d warning(s), got none", tt.wantWarnings)
+			if gotWarnings := len(result.Warnings); gotWarnings != tt.wantWarnings {
+				t.Errorf("warnings = %d, want %d; warnings: %v", gotWarnings, tt.wantWarnings, result.Warnings)
 			}
-			if tt.wantErrors > 0 && len(result.Errors) == 0 {
-				t.Errorf("expected at least %d error(s), got none", tt.wantErrors)
+			if gotErrors := len(result.Errors); gotErrors != tt.wantErrors {
+				t.Errorf("errors = %d, want %d; errors: %v", gotErrors, tt.wantErrors, result.Errors)
 			}
 		})
 	}
