@@ -225,11 +225,19 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 
 	if copyErr != nil {
 		// Clean up the destination and restore the backup (if any) if the copy or metadata write failed.
-		_ = os.RemoveAll(dest)
-		if destExists {
-			_ = os.Rename(backup, dest)
+		combinedErr := copyErr
+
+		if rmErr := os.RemoveAll(dest); rmErr != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("removing destination %q during rollback: %w", dest, rmErr))
 		}
-		return "", "", copyErr
+
+		if destExists {
+			if restoreErr := os.Rename(backup, dest); restoreErr != nil {
+				combinedErr = errors.Join(combinedErr, fmt.Errorf("restoring backup from %q to %q during rollback: %w", backup, dest, restoreErr))
+			}
+		}
+
+		return "", "", combinedErr
 	}
 
 	// Success — remove the backup.
