@@ -105,6 +105,7 @@ func TestDiscover_ErrorCases(t *testing.T) {
 		name           string
 		fsys           fstest.MapFS
 		wantSkillCount int
+		wantDirs       []string
 	}{
 		{
 			name: "parse_error",
@@ -119,6 +120,7 @@ description: A good skill
 				},
 			},
 			wantSkillCount: 1,
+			wantDirs:       []string{"good-skill"},
 		},
 		{
 			name: "validation_error",
@@ -146,6 +148,20 @@ description: ""
 			}
 			if len(skills) != tt.wantSkillCount {
 				t.Errorf("expected %d skill(s), got %d", tt.wantSkillCount, len(skills))
+			}
+			if len(tt.wantDirs) > 0 {
+				if len(skills) != len(tt.wantDirs) {
+					t.Fatalf("expected skills from dirs %v, but got %d skills", tt.wantDirs, len(skills))
+				}
+				gotDirs := make(map[string]struct{}, len(skills))
+				for _, s := range skills {
+					gotDirs[s.Dir] = struct{}{}
+				}
+				for _, wantDir := range tt.wantDirs {
+					if _, ok := gotDirs[wantDir]; !ok {
+						t.Errorf("expected discovered skills to include dir %q, got dirs %v", wantDir, gotDirs)
+					}
+				}
 			}
 		})
 	}
