@@ -20,7 +20,7 @@ func (s *Smith) cmdList(_ context.Context, args []string, out, errW io.Writer) e
 		return err
 	}
 
-	skills, discoverErr := agentskill.Discover(s.FS)
+	skills, discoverErr := agentskill.Discover(s.skillsFS())
 	var fatalErr error
 	eachError(discoverErr, func(e error) {
 		var se *agentskill.SkillError
