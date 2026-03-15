@@ -43,7 +43,7 @@ This gives your tool the following subcommands:
 ```bash
 mytool skills list        # List embedded skills
 mytool skills install     # Install skills to ~/.agents/skills
-mytool skills update      # Update skills when version differs
+mytool skills update      # Update skills to newer versions
 mytool skills reinstall   # Reinstall all managed skills
 mytool skills uninstall   # Remove managed skills
 mytool skills status      # Show install status and version diff
