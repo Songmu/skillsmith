@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.0.2](https://github.com/Songmu/skillsmith/compare/v0.0.1...v0.0.2) - 2026-03-15
+- Fix go:embed directive and documentation by @Songmu in https://github.com/Songmu/skillsmith/pull/10
+- Fix: use semver comparison in status command by @Songmu in https://github.com/Songmu/skillsmith/pull/12
+- Fix: uninstall error handling swallows fatal errors by @Songmu in https://github.com/Songmu/skillsmith/pull/13
+
 ## [v0.0.1](https://github.com/Songmu/skillsmith/commits/v0.0.1) - 2026-03-15
 - Implement skillsmith core by @Songmu in https://github.com/Songmu/skillsmith/pull/3
 - Auto-detect skills root directory in FS by @Songmu in https://github.com/Songmu/skillsmith/pull/4
