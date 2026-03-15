@@ -37,7 +37,7 @@ var subcommands = []struct{ name, desc string }{
 }
 
 // Run parses args and dispatches to the matching subcommand.
-// Common flags (--dry-run, --prefix, --agent, --scope, --force) are parsed
+// Common flags (--dry-run, --prefix, --force) are parsed
 // before the subcommand is dispatched.
 func (s *Smith) Run(ctx context.Context, args []string) error {
 	out := s.outWriter()
@@ -95,17 +95,13 @@ func (s *Smith) Run(ctx context.Context, args []string) error {
 type commonFlags struct {
 	dryRun bool
 	prefix string
-	agent  string
-	scope  string
 	force  bool
 }
 
 // addCommonFlags registers the common flags onto fs.
 func addCommonFlags(f *flag.FlagSet, cf *commonFlags) {
 	f.BoolVar(&cf.dryRun, "dry-run", false, "print what would happen without making changes")
-	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (overrides --agent/--scope)")
-	f.StringVar(&cf.agent, "agent", "", "target agent: codex, claude, agents (default: claude)")
-	f.StringVar(&cf.scope, "scope", "", "target scope: user, repo (default: user)")
+	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (default: ~/.agents/skills)")
 	f.BoolVar(&cf.force, "force", false, "overwrite unmanaged skills")
 }
 
@@ -114,7 +110,7 @@ func (s *Smith) installDir(cf commonFlags) (string, error) {
 	if cf.prefix != "" {
 		return cf.prefix, nil
 	}
-	return ResolveInstallDir(cf.agent, cf.scope)
+	return DefaultInstallDir()
 }
 
 func (s *Smith) outWriter() io.Writer {
