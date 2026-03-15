@@ -43,5 +43,5 @@ func WriteMeta(dir string, meta *SkillMeta) error {
 // IsManaged reports whether a .skillsmith.json file exists in dir.
 func IsManaged(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, metaFilename))
-	return !errors.Is(err, os.ErrNotExist)
+	return err == nil
 }
