@@ -2,6 +2,7 @@ package skillsmith
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -15,7 +16,7 @@ func TestResolveInstallDir_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := home + "/.claude/skills"
+	want := filepath.Join(home, ".claude", "skills")
 	if got != want {
 		t.Errorf("ResolveInstallDir(\"\",\"\") = %q, want %q", got, want)
 	}
@@ -31,12 +32,12 @@ func TestResolveInstallDir_AllMappings(t *testing.T) {
 		agent, scope string
 		want         string
 	}{
-		{"codex", "user", home + "/.codex/skills"},
-		{"codex", "repo", ".agents/skills"},
-		{"claude", "user", home + "/.claude/skills"},
-		{"claude", "repo", ".claude/skills"},
-		{"agents", "user", home + "/.agents/skills"},
-		{"agents", "repo", ".agents/skills"},
+		{"codex", "user", filepath.Join(home, ".codex", "skills")},
+		{"codex", "repo", filepath.Join(".agents", "skills")},
+		{"claude", "user", filepath.Join(home, ".claude", "skills")},
+		{"claude", "repo", filepath.Join(".claude", "skills")},
+		{"agents", "user", filepath.Join(home, ".agents", "skills")},
+		{"agents", "repo", filepath.Join(".agents", "skills")},
 	}
 	for _, tt := range tests {
 		got, err := ResolveInstallDir(tt.agent, tt.scope)

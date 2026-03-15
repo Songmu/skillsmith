@@ -11,7 +11,7 @@ import (
 	"github.com/Songmu/skillsmith/agentskill"
 )
 
-// CopyMode controls the install/update/reinstall behaviour.
+// CopyMode controls the install/update/reinstall behavior.
 type CopyMode int
 
 const (
@@ -23,7 +23,7 @@ const (
 	ModeReinstall
 )
 
-// CopyOptions configures the behaviour of CopySkills.
+// CopyOptions configures the behavior of CopySkills.
 type CopyOptions struct {
 	// Mode determines whether this is an install, update, or reinstall.
 	Mode CopyMode
@@ -44,7 +44,7 @@ type SkillAction struct {
 	Message string
 }
 
-// CopyResult summarises the outcome of a CopySkills call.
+// CopyResult summarizes the outcome of a CopySkills call.
 type CopyResult struct {
 	Actions []SkillAction
 }

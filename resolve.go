@@ -48,10 +48,11 @@ func ResolveInstallDir(agent, scope string) (string, error) {
 	return expandHome(p)
 }
 
-// expandHome replaces a leading "~" with the user's home directory.
+// expandHome replaces a leading "~" with the user's home directory and
+// normalizes path separators for the current OS.
 func expandHome(p string) (string, error) {
 	if !strings.HasPrefix(p, "~") {
-		return p, nil
+		return filepath.FromSlash(p), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
