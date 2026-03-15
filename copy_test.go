@@ -130,11 +130,11 @@ func TestCopySkills_Update_SameVersion(t *testing.T) {
 	src := newTestFS()
 	dest := t.TempDir()
 
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"}); err != nil {
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
 		t.Fatalf("install: %v", err)
 	}
 
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v1"})
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v1.0.0"})
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -144,15 +144,15 @@ func TestCopySkills_Update_SameVersion(t *testing.T) {
 	}
 }
 
-func TestCopySkills_Update_DifferentVersion(t *testing.T) {
+func TestCopySkills_Update_HigherVersion(t *testing.T) {
 	src := newTestFS()
 	dest := t.TempDir()
 
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"}); err != nil {
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
 		t.Fatalf("install: %v", err)
 	}
 
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v2"})
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v2.0.0"})
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -162,26 +162,142 @@ func TestCopySkills_Update_DifferentVersion(t *testing.T) {
 	}
 
 	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v2" {
-		t.Errorf("expected version v2 after update, got %q", meta.Version)
+	if meta.Version != "v2.0.0" {
+		t.Errorf("expected version v2.0.0 after update, got %q", meta.Version)
 	}
 }
 
-func TestCopySkills_Reinstall(t *testing.T) {
+func TestCopySkills_Update_VersionWithoutVPrefix(t *testing.T) {
 	src := newTestFS()
 	dest := t.TempDir()
 
-	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1"}); err != nil {
+	// Initial install without a leading "v" in the version string.
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "1.0.0"}); err != nil {
+		t.Fatalf("install (no v prefix): %v", err)
+	}
+
+	// Update to a higher version, also without a leading "v".
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "2.0.0"})
+	if err != nil {
+		t.Fatalf("update (no v prefix): %v", err)
+	}
+
+	if len(result.Installed()) != 1 || result.Installed()[0].Action != "updated" {
+		t.Errorf("expected 1 updated skill when using versions without v prefix, got: %v", result.Installed())
+	}
+
+	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+	if meta.Version != "2.0.0" {
+		t.Errorf("expected version 2.0.0 after update, got %q", meta.Version)
+	}
+}
+
+func TestCopySkills_Update_LowerVersion(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
 		t.Fatalf("install: %v", err)
 	}
 
-	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1"})
+	// Attempt to "update" to a lower version — should be skipped.
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeUpdate, Name: "tool", Version: "v1.0.0"})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if len(result.Skipped()) != 1 {
+		t.Errorf("expected 1 skipped skill (downgrade attempt), got: %v", result.Skipped())
+	}
+
+	// Version on disk should remain v2.0.0.
+	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+	if meta.Version != "v2.0.0" {
+		t.Errorf("expected version to remain v2.0.0, got %q", meta.Version)
+	}
+}
+
+func TestCopySkills_Reinstall_LowerVersion_Skipped(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	// Reinstall with lower version — should be skipped without --force.
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0"})
+	if err != nil {
+		t.Fatalf("reinstall: %v", err)
+	}
+
+	if len(result.Skipped()) != 1 {
+		t.Errorf("expected 1 skipped skill (downgrade protection), got: %v", result.Skipped())
+	}
+}
+
+func TestCopySkills_Reinstall_LowerVersion_Force(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v2.0.0"}); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	// Reinstall with lower version + --force — should succeed.
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0", Force: true})
 	if err != nil {
 		t.Fatalf("reinstall: %v", err)
 	}
 
 	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
-		t.Errorf("expected 1 reinstalled skill, got: %v", result.Installed())
+		t.Errorf("expected 1 reinstalled skill with --force, got: %v", result.Installed())
+	}
+
+	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+	if meta.Version != "v1.0.0" {
+		t.Errorf("expected version v1.0.0 after forced reinstall, got %q", meta.Version)
+	}
+}
+
+func TestCopySkills_Reinstall_SameVersion(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v1.0.0"})
+	if err != nil {
+		t.Fatalf("reinstall: %v", err)
+	}
+
+	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
+		t.Errorf("expected 1 reinstalled skill (same version), got: %v", result.Installed())
+	}
+}
+
+func TestCopySkills_Reinstall_HigherVersion(t *testing.T) {
+	src := newTestFS()
+	dest := t.TempDir()
+
+	if _, err := CopySkills(src, dest, CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"}); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	result, err := CopySkills(src, dest, CopyOptions{Mode: ModeReinstall, Name: "tool", Version: "v2.0.0"})
+	if err != nil {
+		t.Fatalf("reinstall: %v", err)
+	}
+
+	if len(result.Installed()) != 1 || result.Installed()[0].Action != "reinstalled" {
+		t.Errorf("expected 1 reinstalled skill (higher version), got: %v", result.Installed())
+	}
+
+	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
+	if meta.Version != "v2.0.0" {
+		t.Errorf("expected version v2.0.0 after reinstall, got %q", meta.Version)
 	}
 }
 
