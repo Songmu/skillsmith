@@ -19,6 +19,22 @@ import (
 // CopyMode controls the install/update/reinstall behavior.
 type CopyMode int
 
+// compareVersionsSafe compares two version strings using semver semantics when possible.
+// It returns (cmp, true) when both versions are valid semver after ensureVPrefix, where
+// cmp has the same meaning as semver.Compare (negative, zero, positive).
+// If either version is not a valid semver, it returns (0, false) and callers should
+// fall back to a non-semver-based behavior (typically equality-only checks).
+func compareVersionsSafe(a, b string) (int, bool) {
+	va := ensureVPrefix(a)
+	vb := ensureVPrefix(b)
+
+	if !semver.IsValid(va) || !semver.IsValid(vb) {
+		return 0, false
+	}
+
+	return semver.Compare(va, vb), true
+}
+
 const (
 	// ModeInstall installs new skills; skips existing managed skills.
 	ModeInstall CopyMode = iota
@@ -177,9 +193,16 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 			return "skipped", fmt.Sprintf("skill %q is not managed by skillsmith", skill.Dir), nil
 		}
 		meta, readErr := ReadMeta(dest)
-		if readErr == nil && semver.Compare(ensureVPrefix(meta.Version), ensureVPrefix(opts.Version)) >= 0 {
-			// Installed version is same or newer — nothing to do.
-			return "skipped", fmt.Sprintf("skill %q is already at version %s (>= %s)", skill.Dir, meta.Version, opts.Version), nil
+		if readErr == nil {
+			if cmp, ok := compareVersionsSafe(meta.Version, opts.Version); ok {
+				// Installed version is same or newer — nothing to do.
+				if cmp >= 0 {
+					return "skipped", fmt.Sprintf("skill %q is already at version %s (>= %s)", skill.Dir, meta.Version, opts.Version), nil
+				}
+			} else if meta.Version == opts.Version {
+				// Non-semver versions: fall back to equality-only behavior.
+				return "skipped", fmt.Sprintf("skill %q is already at version %s", skill.Dir, meta.Version), nil
+			}
 		}
 
 	case ModeReinstall:
@@ -190,9 +213,11 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 		} else {
 			// Prevent downgrade unless --force is used.
 			meta, readErr := ReadMeta(dest)
-			if readErr == nil && semver.Compare(ensureVPrefix(meta.Version), ensureVPrefix(opts.Version)) > 0 {
-				if !opts.Force {
-					return "skipped", fmt.Sprintf("skill %q has newer version %s (> %s); use --force to downgrade", skill.Dir, meta.Version, opts.Version), nil
+			if readErr == nil {
+				if cmp, ok := compareVersionsSafe(meta.Version, opts.Version); ok && cmp > 0 {
+					if !opts.Force {
+						return "skipped", fmt.Sprintf("skill %q has newer version %s (> %s); use --force to downgrade", skill.Dir, meta.Version, opts.Version), nil
+					}
 				}
 			}
 		}
