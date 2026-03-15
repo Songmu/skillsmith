@@ -339,5 +339,3 @@ func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
 		t.Error("'skills' dir should have been stripped from root, but it still exists")
 	}
 }
-
-
