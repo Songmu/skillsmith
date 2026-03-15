@@ -57,7 +57,7 @@ func InstallDirForScope(scope string) (string, error) {
 	case "repo":
 		root, err := findRepoRoot()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("resolving install dir for scope %q (finding repo root): %w", scope, err)
 		}
 		return filepath.Join(root, ".agents", "skills"), nil
 	default:
