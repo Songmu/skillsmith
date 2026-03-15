@@ -201,6 +201,10 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 	destExists := false
 	if _, statErr := os.Stat(dest); statErr == nil {
 		destExists = true
+		// Remove any leftover backup from a prior interrupted install.
+		if removeErr := os.RemoveAll(backup); removeErr != nil {
+			return "", "", fmt.Errorf("removing stale backup of %q: %w", skill.Dir, removeErr)
+		}
 		if renameErr := os.Rename(dest, backup); renameErr != nil {
 			return "", "", fmt.Errorf("creating backup of %q: %w", skill.Dir, renameErr)
 		}

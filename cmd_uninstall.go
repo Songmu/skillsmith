@@ -48,7 +48,7 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 		}
 
 		if cf.dryRun {
-			fmt.Fprintf(out, "[dry-run] would uninstall: %s\n", skill.Dir)
+			fmt.Fprintf(out, "uninstalled (dry-run): %s\n", skill.Dir)
 			continue
 		}
 
