@@ -67,7 +67,7 @@ func TestNew_ValidVersion_WithoutV(t *testing.T) {
 }
 
 func TestSmith_Run_UnknownSubcommand(t *testing.T) {
-	s, _, _ := newTestSmith(testSkillFS)
+	s, _, _ := newTestSmith(t, testSkillFS)
 	err := s.Run(context.Background(), []string{"unknown"})
 	if err == nil {
 		t.Error("expected error for unknown subcommand, got nil")
@@ -75,7 +75,7 @@ func TestSmith_Run_UnknownSubcommand(t *testing.T) {
 }
 
 func TestSmith_Run_NoArgs(t *testing.T) {
-	s, _, _ := newTestSmith(testSkillFS)
+	s, _, _ := newTestSmith(t, testSkillFS)
 	err := s.Run(context.Background(), []string{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -83,7 +83,7 @@ func TestSmith_Run_NoArgs(t *testing.T) {
 }
 
 func TestSmith_Run_Help(t *testing.T) {
-	s, _, errW := newTestSmith(testSkillFS)
+	s, _, errW := newTestSmith(t, testSkillFS)
 	err := s.Run(context.Background(), []string{"--help"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -94,7 +94,7 @@ func TestSmith_Run_Help(t *testing.T) {
 }
 
 func TestSmith_List(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	err := s.Run(context.Background(), []string{"list"})
 	if err != nil {
 		t.Fatalf("list: %v", err)
@@ -105,7 +105,7 @@ func TestSmith_List(t *testing.T) {
 }
 
 func TestSmith_Install_DryRun(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	dir := t.TempDir()
 	err := s.Run(context.Background(), []string{"install", "--prefix", dir, "--dry-run"})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestSmith_Install_DryRun(t *testing.T) {
 }
 
 func TestSmith_Install_ThenStatus(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	dir := t.TempDir()
 
 	// Install.
@@ -139,7 +139,7 @@ func TestSmith_Install_ThenStatus(t *testing.T) {
 }
 
 func TestSmith_Uninstall(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	dir := t.TempDir()
 
 	if err := s.Run(context.Background(), []string{"install", "--prefix", dir}); err != nil {
@@ -156,7 +156,7 @@ func TestSmith_Uninstall(t *testing.T) {
 }
 
 func TestSmith_Update_NoChange(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	dir := t.TempDir()
 
 	if err := s.Run(context.Background(), []string{"install", "--prefix", dir}); err != nil {
@@ -173,7 +173,7 @@ func TestSmith_Update_NoChange(t *testing.T) {
 }
 
 func TestSmith_Reinstall(t *testing.T) {
-	s, out, _ := newTestSmith(testSkillFS)
+	s, out, _ := newTestSmith(t, testSkillFS)
 	dir := t.TempDir()
 
 	if err := s.Run(context.Background(), []string{"install", "--prefix", dir}); err != nil {

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Songmu/skillsmith/agentskill"
@@ -166,7 +167,7 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 			return "skipped", fmt.Sprintf("skill %q is not managed by skillsmith", skill.Dir), nil
 		}
 		meta, readErr := ReadMeta(dest)
-		if readErr == nil && meta.Version == opts.Version {
+		if readErr == nil && strings.TrimPrefix(meta.Version, "v") == strings.TrimPrefix(opts.Version, "v") {
 			// Same version — nothing to do.
 			return "skipped", fmt.Sprintf("skill %q is already at version %q", skill.Dir, opts.Version), nil
 		}
