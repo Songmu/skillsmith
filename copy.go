@@ -205,6 +205,8 @@ func copySkill(src fs.FS, destDir string, skill *agentskills.Skill, opts CopyOpt
 			}
 		}
 
+	// In reinstall mode, opts.Force controls both overwriting unmanaged skills
+	// and allowing downgrades when a newer managed version is already installed.
 	case ModeReinstall:
 		if !managed {
 			if !opts.Force {
