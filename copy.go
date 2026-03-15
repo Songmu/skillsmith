@@ -222,9 +222,9 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 	}
 
 	if copyErr != nil {
-		// Restore the backup if the copy or metadata write failed.
+		// Clean up the destination and restore the backup (if any) if the copy or metadata write failed.
+		_ = os.RemoveAll(dest)
 		if destExists {
-			_ = os.RemoveAll(dest)
 			_ = os.Rename(backup, dest)
 		}
 		return "", "", copyErr
