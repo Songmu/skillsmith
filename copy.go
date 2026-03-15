@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -197,14 +198,11 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 
 	// When the destination already exists, back it up first so that a failed
 	// copy can be rolled back without leaving a partially-written skill behind.
-	backup := dest + ".bak"
+	// A random suffix avoids collisions with any leftover backup from a prior interrupted install.
+	backup := fmt.Sprintf("%s.%08x.bak", dest, rand.Uint32())
 	destExists := false
 	if _, statErr := os.Stat(dest); statErr == nil {
 		destExists = true
-		// Remove any leftover backup from a prior interrupted install.
-		if removeErr := os.RemoveAll(backup); removeErr != nil {
-			return "", "", fmt.Errorf("removing stale backup of %q: %w", skill.Dir, removeErr)
-		}
 		if renameErr := os.Rename(dest, backup); renameErr != nil {
 			return "", "", fmt.Errorf("creating backup of %q: %w", skill.Dir, renameErr)
 		}
