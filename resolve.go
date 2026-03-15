@@ -15,7 +15,7 @@ import (
 // ignored for security.
 //
 // Returns an error if the filesystem root is reached without finding .git.
-func FindRepoRoot() (string, error) {
+func findRepoRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("getting current directory: %w", err)
@@ -55,7 +55,7 @@ func InstallDirForScope(scope string) (string, error) {
 		}
 		return filepath.Join(home, ".agents", "skills"), nil
 	case "repo":
-		root, err := FindRepoRoot()
+		root, err := findRepoRoot()
 		if err != nil {
 			return "", err
 		}
