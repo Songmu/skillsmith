@@ -11,7 +11,23 @@ import (
 
 func main() {
 	log.SetFlags(0)
-	err := skillsmith.Run(context.Background(), os.Args[1:], os.Stdout, os.Stderr)
+
+	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "skills" {
+		s := &skillsmith.Smith{
+			FS:      skillsmith.DemoFS(),
+			Version: skillsmith.Version(),
+			Name:    "skillsmith",
+		}
+		err := s.Run(context.Background(), args[1:])
+		if err != nil && err != flag.ErrHelp {
+			log.Println(err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	err := skillsmith.Run(context.Background(), args, os.Stdout, os.Stderr)
 	if err != nil && err != flag.ErrHelp {
 		log.Println(err)
 		exitCode := 1

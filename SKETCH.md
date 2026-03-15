@@ -58,7 +58,7 @@ skills/
 3. **Skill 配布層**
    - `embed.FS` または任意の `fs.FS` から skill ディレクトリを列挙・コピーする
 4. **インストール先解決層**
-   - `--dir` / `--agent` / `--scope` から配置先を決定する
+   - `--prefix` または既定値（`~/.agents/skills`）から配置先を決定する
 5. **SKILL.md パース・バリデーション層**
    - agentskills 仕様に基づく SKILL.md の frontmatter パース・バリデーション
    - サブパッケージとして切り出し、skillsmith 外でも利用可能にする
@@ -118,8 +118,8 @@ func run(ctx context.Context, args []string) error {
 mytool skills list
 mytool skills install
 mytool skills install --dry-run
-mytool skills install --dir ~/.codex/skills
-mytool skills install --agent codex --scope user
+mytool skills install --prefix ~/.codex/skills
+mytool skills install --scope repo
 mytool skills status
 mytool skills update
 mytool skills uninstall
@@ -130,9 +130,8 @@ mytool skills uninstall
 | オプション | 短縮 | 概要 |
 |-----------|------|------|
 | `--dry-run` | | 実際の変更を行わず、何が行われるかを表示する |
-| `--dir` | | インストール先ディレクトリを直接指定 |
-| `--agent` | | 対象 agent（`codex`, `claude`, `agents`） |
-| `--scope` | | 対象スコープ（`user`, `repo`） |
+| `--prefix` | | スキルのインストール先ディレクトリを直接指定（指定時は `--scope` を無視） |
+| `--scope` | | `user`（既定: `~/.agents/skills`）または `repo`（`.agents/skills`） |
 | `--force` | | 管理外スキルの上書きを許可 |
 | `--help` | `-h` | ヘルプを表示 |
 
@@ -146,25 +145,17 @@ mytool skills uninstall
 
 ## インストール先解決
 
-### Agent / Scope のパスマッピング
-
-| Agent | Scope | パス |
-|-------|-------|------|
-| `codex` | `user` | `~/.codex/skills` |
-| `codex` | `repo` | `.agents/skills` |
-| `claude` | `user` | `~/.claude/skills` |
-| `claude` | `repo` | `.claude/skills` |
-| `agents` | `user` | `~/.agents/skills` |
-| `agents` | `repo` | `.agents/skills` |
-
-- `claude`: Claude Code と GitHub Copilot の両方をカバー（Copilot も `.claude/skills` を読む）
-- `agents`: agentskills 仕様のクロスクライアント互換パス
+`.agents/skills` は agentskills のクロスクライアント標準パスである。
 
 ### 解決の優先順位
 
-1. `--dir` — 指定時は Agent / Scope の解決を行わない
-2. `--agent` + `--scope`
-3. ライブラリ既定値: `claude` + `user`（→ `~/.claude/skills`）
+1. `--prefix <dir>` — 指定時はその値を使用する（`--scope` は無視される）
+2. `--scope repo` — `.agents/skills`（カレントディレクトリ基準）
+3. `--scope user`（または指定なし） — `~/.agents/skills`
+
+### 将来検討
+
+- スキルの別名インストール
 
 
 ## ファイルコピー方針
