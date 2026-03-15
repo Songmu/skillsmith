@@ -3,7 +3,6 @@ package skillsmith
 import (
 	"bytes"
 	"context"
-	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -26,14 +25,40 @@ Teaches the agent how to use demo.
 func newTestSmith(fsys fstest.MapFS) (*Smith, *bytes.Buffer, *bytes.Buffer) {
 	out := &bytes.Buffer{}
 	errW := &bytes.Buffer{}
-	s := &Smith{
-		FS:        fsys,
-		Version:   "v1.0.0",
-		Name:      "testtool",
-		OutWriter: out,
-		ErrWriter: errW,
+	s, err := New("testtool", "v1.0.0", fsys)
+	if err != nil {
+		panic(err)
 	}
+	s.OutWriter = out
+	s.ErrWriter = errW
 	return s, out, errW
+}
+
+func TestNew_InvalidVersion(t *testing.T) {
+	_, err := New("tool", "not-a-version", testSkillFS)
+	if err == nil {
+		t.Error("expected error for invalid version, got nil")
+	}
+}
+
+func TestNew_ValidVersion_WithV(t *testing.T) {
+	s, err := New("tool", "v1.2.3", testSkillFS)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if s.Version() != "1.2.3" {
+		t.Errorf("expected version %q stored without 'v', got %q", "1.2.3", s.Version())
+	}
+}
+
+func TestNew_ValidVersion_WithoutV(t *testing.T) {
+	s, err := New("tool", "1.2.3", testSkillFS)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if s.Version() != "1.2.3" {
+		t.Errorf("expected version %q stored without 'v', got %q", "1.2.3", s.Version())
+	}
 }
 
 func TestSmith_Run_UnknownSubcommand(t *testing.T) {
@@ -210,79 +235,76 @@ Teaches the agent how to use demo.
 	},
 }
 
-func TestSkillsFS_SingleDir_AutoDetects(t *testing.T) {
-	s := &Smith{FS: wrappedSkillFS}
-	detected := s.skillsFS()
-	entries, err := fs.ReadDir(detected, ".")
+// TestNew_AutoDetect_SingleDir verifies that New strips the "skills/" prefix when
+// it is the only directory at the root of skillFS.
+func TestNew_AutoDetect_SingleDir(t *testing.T) {
+	s, err := New("test", "1.0.0", wrappedSkillFS)
 	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
+		t.Fatalf("New: %v", err)
 	}
-	for _, e := range entries {
-		if e.Name() == "skills" {
-			t.Error("skillsFS() should have stripped the 'skills/' prefix, but 'skills' dir still present at root")
-		}
+	out := &bytes.Buffer{}
+	s.OutWriter = out
+	s.ErrWriter = &bytes.Buffer{}
+	if err := s.Run(context.Background(), []string{"list"}); err != nil {
+		t.Fatalf("list: %v", err)
 	}
-	// demo-skill should be visible at root of the detected FS.
-	found := false
-	for _, e := range entries {
-		if e.Name() == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
+	if !strings.Contains(out.String(), "demo-skill") {
+		t.Errorf("expected 'demo-skill' in list output after auto-detect strip, got: %q", out.String())
 	}
 }
 
-func TestSkillsFS_PreStripped_UsesAsIs(t *testing.T) {
-	s := &Smith{FS: testSkillFS}
-	detected := s.skillsFS()
-	entries, err := fs.ReadDir(detected, ".")
+// TestNew_AutoDetect_PreStripped verifies that New uses the FS as-is when skills
+// are already at the root (no "skills/" prefix to strip).
+func TestNew_AutoDetect_PreStripped(t *testing.T) {
+	s, err := New("test", "1.0.0", testSkillFS)
 	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
+		t.Fatalf("New: %v", err)
 	}
-	// demo-skill should be at root directly (already stripped).
-	found := false
-	for _, e := range entries {
-		if e.Name() == "demo-skill" {
-			found = true
-		}
+	out := &bytes.Buffer{}
+	s.OutWriter = out
+	s.ErrWriter = &bytes.Buffer{}
+	if err := s.Run(context.Background(), []string{"list"}); err != nil {
+		t.Fatalf("list: %v", err)
 	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
+	if !strings.Contains(out.String(), "demo-skill") {
+		t.Errorf("expected 'demo-skill' in list output for pre-stripped FS, got: %q", out.String())
 	}
 }
 
-func TestSkillsFS_MixedRoot_UsesAsIs(t *testing.T) {
-	s := &Smith{FS: mixedRootFS}
-	detected := s.skillsFS()
-	// The only directory is "demo-skill" (not "skills"), so the FS is used as-is.
-	// README.md must still be visible at root.
-	if _, err := fs.Stat(detected, "README.md"); err != nil {
-		t.Errorf("expected README.md at root of skillsFS() for mixed-root FS, got: %v", err)
+// TestNew_AutoDetect_MixedRoot verifies that New uses the FS as-is when the only
+// directory at root is not named "skills".
+func TestNew_AutoDetect_MixedRoot(t *testing.T) {
+	s, err := New("test", "1.0.0", mixedRootFS)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	out := &bytes.Buffer{}
+	s.OutWriter = out
+	s.ErrWriter = &bytes.Buffer{}
+	if err := s.Run(context.Background(), []string{"list"}); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(out.String(), "demo-skill") {
+		t.Errorf("expected 'demo-skill' in list output for mixed-root FS, got: %q", out.String())
 	}
 }
 
-func TestSkillsFS_SkillsDirWithFileAtRoot_AutoDetects(t *testing.T) {
-	s := &Smith{FS: wrappedWithFileFS}
-	detected := s.skillsFS()
-	// Files at root (e.g. README.md) are ignored; "skills/" is still stripped.
-	entries, err := fs.ReadDir(detected, ".")
+// TestNew_AutoDetect_SkillsDirWithFileAtRoot verifies that New strips the "skills/"
+// prefix even when files are present alongside it at root.
+func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
+	s, err := New("test", "1.0.0", wrappedWithFileFS)
 	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
+		t.Fatalf("New: %v", err)
 	}
-	for _, e := range entries {
-		if e.Name() == "skills" {
-			t.Error("skillsFS() should have stripped the 'skills/' prefix, but 'skills' dir still present at root")
-		}
+	out := &bytes.Buffer{}
+	s.OutWriter = out
+	s.ErrWriter = &bytes.Buffer{}
+	if err := s.Run(context.Background(), []string{"list"}); err != nil {
+		t.Fatalf("list: %v", err)
 	}
-	found := false
-	for _, e := range entries {
-		if e.Name() == "demo-skill" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
+	if !strings.Contains(out.String(), "demo-skill") {
+		t.Errorf("expected 'demo-skill' in list output after auto-detect strip (with file at root), got: %q", out.String())
 	}
 }
+
+

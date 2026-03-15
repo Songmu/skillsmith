@@ -25,12 +25,12 @@ func (s *Smith) cmdInstall(_ context.Context, args []string, out, errW io.Writer
 		return err
 	}
 
-	result, err := CopySkills(s.skillsFS(), dir, CopyOptions{
+	result, err := CopySkills(s.fs, dir, CopyOptions{
 		Mode:    ModeInstall,
 		Force:   cf.force,
 		DryRun:  cf.dryRun,
-		Name:    s.Name,
-		Version: s.Version,
+		Name:    s.name,
+		Version: s.version,
 	})
 	if err != nil {
 		return err

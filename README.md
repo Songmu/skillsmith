@@ -21,11 +21,9 @@ var skillsFS embed.FS
 
 func run(ctx context.Context, args []string) error {
     if len(args) > 0 && args[0] == "skills" {
-        sub, _ := fs.Sub(skillsFS, "skills")
-        s := &skillsmith.Smith{
-            FS:      sub,
-            Version: version,
-            Name:    "mytool",
+        s, err := skillsmith.New("mytool", version, skillsFS)
+        if err != nil {
+            log.Fatal(err)
         }
         return s.Run(ctx, args[1:])
     }
