@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 )
 
-// findRepoRoot traverses parent directories from the current working directory
+// findRepoRoot traverses parent directories starting from startDir
 // to find the repository root (the directory containing a .git entry).
 //
 // It uses os.Lstat to avoid following symlinks: .git must be a directory
 // (normal repo) or a regular file (git worktree). A symlink named .git is
-// ignored for security.
+// treated as a hard error for security.
 //
 // Returns an error if the filesystem root is reached without finding .git.
-func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
+func findRepoRoot(startDir string) (string, error) {
+	dir, err := filepath.Abs(startDir)
 	if err != nil {
-		return "", fmt.Errorf("getting current directory: %w", err)
+		return "", fmt.Errorf("resolving absolute path for %q: %w", startDir, err)
 	}
 
 	for {
@@ -61,7 +61,11 @@ func InstallDirForScope(scope string) (string, error) {
 		}
 		return filepath.Join(home, ".agents", "skills"), nil
 	case "repo":
-		root, err := findRepoRoot()
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("resolving install dir for scope %q: %w", scope, err)
+		}
+		root, err := findRepoRoot(wd)
 		if err != nil {
 			return "", fmt.Errorf("resolving install dir for scope %q (finding repo root): %w", scope, err)
 		}
