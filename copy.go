@@ -200,15 +200,16 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 	// When the destination already exists, back it up first so that a failed
 	// copy can be rolled back without leaving a partially-written skill behind.
 	// A random suffix avoids collisions with any leftover backup from a prior interrupted install.
-	randBytes := make([]byte, 4)
-	if _, err := crand.Read(randBytes); err != nil {
-		return "", "", fmt.Errorf("generating backup suffix for %q: %w", skill.Dir, err)
-	}
-	backupSuffix := hex.EncodeToString(randBytes)
-	backup := fmt.Sprintf("%s.%s.bak", dest, backupSuffix)
 	destExists := false
+	var backup string
 	if _, statErr := os.Stat(dest); statErr == nil {
 		destExists = true
+		randBytes := make([]byte, 4)
+		if _, err := crand.Read(randBytes); err != nil {
+			return "", "", fmt.Errorf("generating backup suffix for %q: %w", skill.Dir, err)
+		}
+		backupSuffix := hex.EncodeToString(randBytes)
+		backup = fmt.Sprintf("%s.%s.bak", dest, backupSuffix)
 		if renameErr := os.Rename(dest, backup); renameErr != nil {
 			return "", "", fmt.Errorf("creating backup of %q: %w", skill.Dir, renameErr)
 		}
