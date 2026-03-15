@@ -71,21 +71,6 @@ location with `--prefix`, control the target scope with `--scope`, and use
 - **`agentskill` subpackage** — SKILL.md parsing and discovery can be used
   independently of the CLI layer.
 
-## Installation
-
-```console
-# Install the latest version. (Install it into ./bin/ by default).
-% curl -sfL https://raw.githubusercontent.com/Songmu/skillsmith/main/install.sh | sh -s
-
-# Specify installation directory ($(go env GOPATH)/bin/) and version.
-% curl -sfL https://raw.githubusercontent.com/Songmu/skillsmith/main/install.sh | sh -s -- -b $(go env GOPATH)/bin [vX.Y.Z]
-
-# In alpine linux (as it does not come with curl by default)
-% wget -O - -q https://raw.githubusercontent.com/Songmu/skillsmith/main/install.sh | sh -s [vX.Y.Z]
-
-# go install
-% go install github.com/Songmu/skillsmith/cmd/skillsmith@latest
-```
 
 ## Author
 
