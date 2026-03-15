@@ -7,10 +7,21 @@ import (
 	"strings"
 )
 
-// DefaultInstallDir returns the default skill installation directory
-// (~/.agents/skills), which is the cross-client standard for agent skills.
-func DefaultInstallDir() (string, error) {
-	return expandHome("~/.agents/skills")
+// InstallDirForScope returns the skill installation directory for the given
+// scope. An empty scope defaults to "user".
+//
+//   - user (default): ~/.agents/skills  (absolute, under the user's home directory)
+//   - repo:           .agents/skills    (relative to the current working directory;
+//     the caller should ensure it is invoked from the repository root)
+func InstallDirForScope(scope string) (string, error) {
+	switch scope {
+	case "", "user":
+		return expandHome("~/.agents/skills")
+	case "repo":
+		return filepath.FromSlash(".agents/skills"), nil
+	default:
+		return "", fmt.Errorf("unknown scope %q (supported: user, repo)", scope)
+	}
 }
 
 // expandHome replaces a leading "~" with the user's home directory and

@@ -37,7 +37,7 @@ var subcommands = []struct{ name, desc string }{
 }
 
 // Run parses args and dispatches to the matching subcommand.
-// Common flags (--dry-run, --prefix, --force) are parsed
+// Common flags (--dry-run, --prefix, --scope, --force) are parsed
 // before the subcommand is dispatched.
 func (s *Smith) Run(ctx context.Context, args []string) error {
 	out := s.outWriter()
@@ -95,22 +95,25 @@ func (s *Smith) Run(ctx context.Context, args []string) error {
 type commonFlags struct {
 	dryRun bool
 	prefix string
+	scope  string
 	force  bool
 }
 
 // addCommonFlags registers the common flags onto fs.
 func addCommonFlags(f *flag.FlagSet, cf *commonFlags) {
 	f.BoolVar(&cf.dryRun, "dry-run", false, "print what would happen without making changes")
-	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (default: ~/.agents/skills)")
+	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (overrides --scope)")
+	f.StringVar(&cf.scope, "scope", "", "target scope: user (~/.agents/skills, default) or repo (.agents/skills)")
 	f.BoolVar(&cf.force, "force", false, "overwrite unmanaged skills")
 }
 
 // installDir returns the effective installation directory for the given flags.
+// --prefix takes precedence; otherwise the directory is derived from --scope.
 func (s *Smith) installDir(cf commonFlags) (string, error) {
 	if cf.prefix != "" {
 		return cf.prefix, nil
 	}
-	return DefaultInstallDir()
+	return InstallDirForScope(cf.scope)
 }
 
 func (s *Smith) outWriter() io.Writer {
