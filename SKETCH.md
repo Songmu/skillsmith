@@ -131,7 +131,7 @@ mytool skills uninstall
 |-----------|------|------|
 | `--dry-run` | | 実際の変更を行わず、何が行われるかを表示する |
 | `--prefix` | | スキルのインストール先ディレクトリを直接指定（指定時は `--scope` を無視） |
-| `--scope` | | `user`（既定: `~/.agents/skills`）または `repo`（`.agents/skills`） |
+| `--scope` | | `user`（既定: `~/.agents/skills`）または `repo`（リポジトリルート自動検出: `<repo-root>/.agents/skills`） |
 | `--force` | | 管理外スキルの上書きを許可 |
 | `--help` | `-h` | ヘルプを表示 |
 
@@ -150,7 +150,7 @@ mytool skills uninstall
 ### 解決の優先順位
 
 1. `--prefix <dir>` — 指定時はその値を使用する（`--scope` は無視される）
-2. `--scope repo` — `.agents/skills`（カレントディレクトリ基準）
+2. `--scope repo` — `<repo-root>/.agents/skills`（親ディレクトリを `.git` が見つかるまで遡ってリポジトリルートを自動検出）
 3. `--scope user`（または指定なし） — `~/.agents/skills`
 
 ### 将来検討
