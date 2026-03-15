@@ -2,7 +2,6 @@ package skillsmith
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"time"
