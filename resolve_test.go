@@ -8,38 +8,40 @@ import (
 )
 
 func TestInstallDirForScope(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Skip("cannot determine home directory:", err)
-	}
+	t.Run("user scope", func(t *testing.T) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Skip("cannot determine home directory:", err)
+		}
 
-	tests := []struct {
-		name    string
-		scope   string
-		want    string
-		wantErr bool
-	}{
-		{name: "empty defaults to user", scope: "", want: filepath.Join(home, ".agents", "skills")},
-		{name: "explicit user", scope: "user", want: filepath.Join(home, ".agents", "skills")},
-		{name: "unknown scope", scope: "unknown", wantErr: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := InstallDirForScope(tt.scope)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
+		tests := []struct {
+			name    string
+			scope   string
+			want    string
+			wantErr bool
+		}{
+			{name: "empty defaults to user", scope: "", want: filepath.Join(home, ".agents", "skills")},
+			{name: "explicit user", scope: "user", want: filepath.Join(home, ".agents", "skills")},
+			{name: "unknown scope", scope: "unknown", wantErr: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, err := InstallDirForScope(tt.scope)
+				if tt.wantErr {
+					if err == nil {
+						t.Fatal("expected error, got nil")
+					}
+					return
 				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
-			}
-		})
-	}
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if got != tt.want {
+					t.Errorf("got %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
 
 	t.Run("repo scope returns absolute path under repo root", func(t *testing.T) {
 		// Create a fake repo and chdir into a nested directory under it so the test
