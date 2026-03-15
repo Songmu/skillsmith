@@ -57,8 +57,9 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 			continue
 		}
 
-		cmp, _ := compareVersionsSafe(meta.Version, s.version)
-		if cmp >= 0 {
+		cmp, ok := compareVersionsSafe(meta.Version, s.version)
+		upToDate := (ok && cmp >= 0) || (!ok && meta.Version == s.version)
+		if upToDate {
 			fmt.Fprintf(out, "%-30s installed %s (up to date)\n", skill.Dir, meta.Version)
 		} else {
 			fmt.Fprintf(out, "%-30s installed %s → available %s\n", skill.Dir, meta.Version, s.version)
