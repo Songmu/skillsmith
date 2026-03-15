@@ -40,7 +40,7 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 		switch a.Action {
 		case "reinstalled":
 			if cf.dryRun {
-				fmt.Fprintln(out, a.Message)
+				fmt.Fprintf(out, "reinstalled (dry-run): %s\n", a.Dir)
 			} else {
 				fmt.Fprintf(out, "reinstalled: %s\n", a.Dir)
 			}

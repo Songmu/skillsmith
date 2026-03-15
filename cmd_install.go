@@ -40,7 +40,7 @@ func (s *Smith) cmdInstall(_ context.Context, args []string, out, errW io.Writer
 		switch a.Action {
 		case "installed":
 			if cf.dryRun {
-				fmt.Fprintln(out, a.Message)
+				fmt.Fprintf(out, "installed (dry-run): %s\n", a.Dir)
 			} else {
 				fmt.Fprintf(out, "installed: %s\n", a.Dir)
 			}

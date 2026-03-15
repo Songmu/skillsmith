@@ -40,7 +40,7 @@ func (s *Smith) cmdUpdate(_ context.Context, args []string, out, errW io.Writer)
 		switch a.Action {
 		case "updated":
 			if cf.dryRun {
-				fmt.Fprintln(out, a.Message)
+				fmt.Fprintf(out, "updated (dry-run): %s\n", a.Dir)
 			} else {
 				fmt.Fprintf(out, "updated:   %s\n", a.Dir)
 			}
