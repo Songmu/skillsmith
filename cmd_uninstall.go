@@ -29,10 +29,10 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	skills, errs := agentskill.Discover(s.FS)
-	for _, e := range errs {
+	skills, discoverErr := agentskill.Discover(s.FS)
+	eachError(discoverErr, func(e error) {
 		fmt.Fprintf(errW, "warning: %v\n", e)
-	}
+	})
 
 	for _, skill := range skills {
 		dest := filepath.Join(dir, skill.Dir)

@@ -18,15 +18,16 @@ import (
 //	    SKILL.md
 //
 // Skills whose SKILL.md cannot be parsed or fails validation are omitted from
-// the returned slice; a descriptive error is appended to the returned error
-// slice instead.
-func Discover(fsys fs.FS) ([]Skill, []error) {
+// the returned slice; each such failure is collected into the returned error as
+// a [SkillError] (joined via [errors.Join]) so callers can use [errors.As] to
+// retrieve per-skill directory information.
+func Discover(fsys fs.FS) ([]*Skill, error) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return nil, []error{fmt.Errorf("discover: reading root directory: %w", err)}
+		return nil, fmt.Errorf("discover: reading root directory: %w", err)
 	}
 
-	var skills []Skill
+	var skills []*Skill
 	var errs []error
 
 	for _, entry := range entries {
@@ -42,29 +43,29 @@ func Discover(fsys fs.FS) ([]Skill, []error) {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			// Other I/O errors are recorded as non-fatal discovery errors.
-			errs = append(errs, fmt.Errorf("discover: %s: open error: %w", skillPath, err))
+			// Other I/O errors are recorded as non-fatal per-skill errors.
+			errs = append(errs, &SkillError{Dir: dirName, Err: fmt.Errorf("open error: %w", err)})
 			continue
 		}
 
 		skill, err := Parse(f)
 		f.Close() //nolint:errcheck
 		if err != nil {
-			errs = append(errs, fmt.Errorf("discover: %s: parse error: %w", skillPath, err))
+			errs = append(errs, &SkillError{Dir: dirName, Err: fmt.Errorf("parse error: %w", err)})
 			continue
 		}
 
 		result := Validate(skill, dirName)
 		if !result.OK() {
 			for _, e := range result.Errors {
-				errs = append(errs, fmt.Errorf("discover: %s: validation error: %s", skillPath, e))
+				errs = append(errs, &SkillError{Dir: dirName, Err: fmt.Errorf("validation error: %s", e)})
 			}
 			continue
 		}
 
 		skill.Dir = dirName
-		skills = append(skills, *skill)
+		skills = append(skills, skill)
 	}
 
-	return skills, errs
+	return skills, errors.Join(errs...)
 }

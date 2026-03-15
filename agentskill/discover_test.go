@@ -1,6 +1,7 @@
 package agentskill
 
 import (
+	"errors"
 	"testing"
 	"testing/fstest"
 )
@@ -25,9 +26,9 @@ description: Another skill
 		},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) != 0 {
-		t.Errorf("unexpected errors: %v", errs)
+	skills, err := Discover(fsys)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 	if len(skills) != 2 {
 		t.Errorf("expected 2 skills, got %d", len(skills))
@@ -46,9 +47,9 @@ description: A skill
 		},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) != 0 {
-		t.Errorf("unexpected errors: %v", errs)
+	skills, err := Discover(fsys)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 	if len(skills) != 1 {
 		t.Errorf("expected 1 skill, got %d", len(skills))
@@ -63,9 +64,9 @@ func TestDiscover_SkipsNoSKILLmd(t *testing.T) {
 		"my-skill/README.md": {Data: []byte("hello")},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) != 0 {
-		t.Errorf("unexpected errors: %v", errs)
+	skills, err := Discover(fsys)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 	if len(skills) != 0 {
 		t.Errorf("expected 0 skills, got %d", len(skills))
@@ -86,9 +87,14 @@ description: A good skill
 		},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) == 0 {
+	skills, err := Discover(fsys)
+	if err == nil {
 		t.Error("expected at least one error for bad-skill, got none")
+	}
+	// The error should be extractable as a SkillError.
+	var se *SkillError
+	if !errors.As(err, &se) {
+		t.Errorf("expected *SkillError in error chain, got: %T %v", err, err)
 	}
 	if len(skills) != 1 || skills[0].Dir != "good-skill" {
 		t.Errorf("expected 1 valid skill (good-skill), got %v", skills)
@@ -106,9 +112,13 @@ description: ""
 		},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) == 0 {
+	skills, err := Discover(fsys)
+	if err == nil {
 		t.Error("expected error for missing description, got none")
+	}
+	var se *SkillError
+	if !errors.As(err, &se) {
+		t.Errorf("expected *SkillError in error chain, got: %T %v", err, err)
 	}
 	if len(skills) != 0 {
 		t.Errorf("expected 0 skills, got %d", len(skills))
@@ -126,9 +136,9 @@ description: A skill
 		},
 	}
 
-	skills, errs := Discover(fsys)
-	if len(errs) != 0 {
-		t.Errorf("unexpected errors: %v", errs)
+	skills, err := Discover(fsys)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 	if len(skills) != 1 {
 		t.Errorf("expected 1 skill (warning should not skip), got %d", len(skills))

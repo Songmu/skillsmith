@@ -1,6 +1,7 @@
 package skillsmith
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -82,15 +83,39 @@ func (r *CopyResult) add(dir, action, msg string) {
 	r.Actions = append(r.Actions, SkillAction{Dir: dir, Action: action, Message: msg})
 }
 
+// eachError calls fn for each individual error in err. If err wraps multiple
+// errors (e.g. from [errors.Join]), fn is called for each element. If err is
+// nil, fn is never called.
+func eachError(err error, fn func(error)) {
+	if err == nil {
+		return
+	}
+	type multiErr interface {
+		Unwrap() []error
+	}
+	if me, ok := err.(multiErr); ok {
+		for _, e := range me.Unwrap() {
+			fn(e)
+		}
+		return
+	}
+	fn(err)
+}
+
 // CopySkills copies skills from src (an fs.FS whose top-level directories are
 // skill directories) into destDir.
 func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error) {
-	skills, errs := agentskill.Discover(src)
+	skills, discoverErr := agentskill.Discover(src)
 	result := &CopyResult{}
 
-	for _, err := range errs {
-		result.add("", "warned", err.Error())
-	}
+	eachError(discoverErr, func(e error) {
+		var se *agentskill.SkillError
+		if errors.As(e, &se) {
+			result.add(se.Dir, "warned", se.Err.Error())
+		} else {
+			result.add("", "warned", e.Error())
+		}
+	})
 
 	for _, skill := range skills {
 		action, msg, err := copySkill(src, destDir, skill, opts)
@@ -105,7 +130,7 @@ func CopySkills(src fs.FS, destDir string, opts CopyOptions) (*CopyResult, error
 
 // copySkill handles the copy logic for a single skill directory.
 // It returns the action taken ("installed", "updated", "reinstalled", "skipped", "warned").
-func copySkill(src fs.FS, destDir string, skill agentskill.Skill, opts CopyOptions) (action, msg string, err error) {
+func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOptions) (action, msg string, err error) {
 	dest := filepath.Join(destDir, skill.Dir)
 	managed := IsManaged(dest)
 
