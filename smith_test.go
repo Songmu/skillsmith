@@ -83,9 +83,9 @@ func TestNew_VersionValidation(t *testing.T) {
 
 func TestNew_AutoDetect(t *testing.T) {
 	tests := []struct {
-		name          string
-		fsys          fstest.MapFS
-		wantSkillDir  string
+		name         string
+		fsys         fstest.MapFS
+		wantSkillDir string
 		// wantSkillsDir indicates whether a "skills/" directory should remain at the root
 		// after auto-detection. If false, "skills/" is expected to be stripped/absent.
 		wantSkillsDir bool
@@ -150,10 +150,10 @@ func TestNew_AutoDetect(t *testing.T) {
 
 func TestSmith_Run_Dispatch(t *testing.T) {
 	tests := []struct {
-		name           string
-		args           []string
-		wantErr        bool
-		wantErrOutput  string
+		name          string
+		args          []string
+		wantErr       bool
+		wantErrOutput string
 	}{
 		{
 			name:    "unknown_subcommand",

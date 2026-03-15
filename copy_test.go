@@ -34,8 +34,8 @@ func TestCopySkills_Install(t *testing.T) {
 		checkMeta     func(t *testing.T, dest string)
 	}{
 		{
-			name: "fresh_install",
-			opts: CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"},
+			name:          "fresh_install",
+			opts:          CopyOptions{Mode: ModeInstall, Name: "tool", Version: "v1.0.0"},
 			wantInstalled: 1,
 			checkMeta: func(t *testing.T, dest string) {
 				if _, err := os.Stat(filepath.Join(dest, "mytool", "SKILL.md")); err != nil {

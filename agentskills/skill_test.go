@@ -60,8 +60,8 @@ metadata:
 body
 `
 	tests := []struct {
-		name      string
-		input     string
+		name       string
+		input      string
 		checkSkill func(t *testing.T, s *Skill)
 	}{
 		{
