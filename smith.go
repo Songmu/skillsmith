@@ -24,19 +24,23 @@ type Smith struct {
 	ErrWriter io.Writer
 
 	name    string // name of the hosting CLI tool
-	version string // version without "v" prefix
+	version string // version stored as provided by the caller
 	fs      fs.FS  // auto-detected skills FS
 }
 
 // New creates a Smith with the given name, version and skill filesystem.
 //
 // Version validation: if version does not start with "v", one is prepended
-// for validation only. The version is stored without the "v" prefix.
+// for validation only. The version is stored as provided.
 //
 // FS auto-detection: if the root of skillFS contains exactly one directory
 // named "skills" (files at root are ignored), that directory is used as the
 // skill root via fs.Sub. Otherwise skillFS is used as-is.
 func New(name, version string, skillFS fs.FS) (*Smith, error) {
+	if skillFS == nil {
+		return nil, errors.New("skill filesystem cannot be nil")
+	}
+
 	// Validate version using semver (requires "v" prefix).
 	vv := version
 	if !strings.HasPrefix(vv, "v") {
@@ -44,12 +48,6 @@ func New(name, version string, skillFS fs.FS) (*Smith, error) {
 	}
 	if !semver.IsValid(vv) {
 		return nil, fmt.Errorf("invalid version %q", version)
-	}
-	// Store without "v" prefix.
-	stored := strings.TrimPrefix(vv, "v")
-
-	if skillFS == nil {
-		return nil, errors.New("skill filesystem cannot be nil")
 	}
 
 	// FS auto-detection: strip "skills/" prefix when it is the only directory.
@@ -72,9 +70,18 @@ func New(name, version string, skillFS fs.FS) (*Smith, error) {
 
 	s := &Smith{
 		name:    name,
-		version: stored,
+		version: version,
 		fs:      detectedFS,
 		FlagSet: flag.NewFlagSet(name+" skills", flag.ContinueOnError),
+	}
+	s.FlagSet.Usage = func() {
+		errW := s.errWriter()
+		fmt.Fprintf(errW, "Usage: %s <command> [options]\n\n", s.FlagSet.Name())
+		fmt.Fprintf(errW, "Commands:\n")
+		for _, cmd := range subcommands {
+			fmt.Fprintf(errW, "  %-12s %s\n", cmd.name, cmd.desc)
+		}
+		fmt.Fprintf(errW, "\nRun '%s <command> --help' for command-specific options.\n", s.FlagSet.Name())
 	}
 	return s, nil
 }
@@ -82,7 +89,7 @@ func New(name, version string, skillFS fs.FS) (*Smith, error) {
 // Name returns the name of the hosting CLI tool.
 func (s *Smith) Name() string { return s.name }
 
-// Version returns the version string (without the "v" prefix).
+// Version returns the version string as provided to New.
 func (s *Smith) Version() string { return s.version }
 
 // subcommands lists the available subcommands and their one-line descriptions.
@@ -102,14 +109,6 @@ func (s *Smith) Run(ctx context.Context, args []string) error {
 
 	top := s.FlagSet
 	top.SetOutput(errW)
-	top.Usage = func() {
-		fmt.Fprintf(errW, "Usage: %s <command> [options]\n\n", top.Name())
-		fmt.Fprintf(errW, "Commands:\n")
-		for _, cmd := range subcommands {
-			fmt.Fprintf(errW, "  %-12s %s\n", cmd.name, cmd.desc)
-		}
-		fmt.Fprintf(errW, "\nRun '%s <command> --help' for command-specific options.\n", top.Name())
-	}
 
 	// Parse only the subcommand name; let subcommand parsers handle the rest.
 	if err := top.Parse(args); err != nil {

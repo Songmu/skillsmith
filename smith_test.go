@@ -3,10 +3,12 @@ package skillsmith
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
-	"io/fs"
+
+	"github.com/Songmu/skillsmith/agentskill"
 )
 
 var testSkillFS = fstest.MapFS{
@@ -47,8 +49,8 @@ func TestNew_ValidVersion_WithV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if s.Version() != "1.2.3" {
-		t.Errorf("expected version %q stored without 'v', got %q", "1.2.3", s.Version())
+	if s.Version() != "v1.2.3" {
+		t.Errorf("expected version stored as-is %q, got %q", "v1.2.3", s.Version())
 	}
 }
 
@@ -243,8 +245,22 @@ func TestNew_AutoDetect_SingleDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
-		t.Fatalf("expected 'demo-skill' at root of skill FS after auto-detect strip, stat error: %v", err)
+	skills, discoverErr := agentskill.Discover(s.fs)
+	if discoverErr != nil {
+		t.Fatalf("Discover: %v", discoverErr)
+	}
+	found := false
+	for _, sk := range skills {
+		if sk.Dir == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of s.fs after auto-detect strip, got: %v", skills)
+	}
+	// Verify "skills" wrapper dir was stripped.
+	if _, statErr := fs.Stat(s.fs, "skills"); statErr == nil {
+		t.Error("'skills' dir should have been stripped from root, but it still exists")
 	}
 }
 
@@ -255,8 +271,18 @@ func TestNew_AutoDetect_PreStripped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
-		t.Fatalf("expected 'demo-skill' at root of pre-stripped skill FS, stat error: %v", err)
+	skills, discoverErr := agentskill.Discover(s.fs)
+	if discoverErr != nil {
+		t.Fatalf("Discover: %v", discoverErr)
+	}
+	found := false
+	for _, sk := range skills {
+		if sk.Dir == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of s.fs for pre-stripped FS, got: %v", skills)
 	}
 }
 
@@ -267,8 +293,22 @@ func TestNew_AutoDetect_MixedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
-		t.Fatalf("expected 'demo-skill' at root of mixed-root skill FS, stat error: %v", err)
+	// FS used as-is: README.md must still be present at root.
+	if _, statErr := fs.Stat(s.fs, "README.md"); statErr != nil {
+		t.Errorf("expected README.md at root of s.fs for mixed-root FS, got: %v", statErr)
+	}
+	skills, discoverErr := agentskill.Discover(s.fs)
+	if discoverErr != nil {
+		t.Fatalf("Discover: %v", discoverErr)
+	}
+	found := false
+	for _, sk := range skills {
+		if sk.Dir == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' discoverable in s.fs for mixed-root FS, got: %v", skills)
 	}
 }
 
@@ -279,8 +319,22 @@ func TestNew_AutoDetect_SkillsDirWithFileAtRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := fs.Stat(s.fs, "demo-skill/SKILL.md"); err != nil {
-		t.Fatalf("expected 'demo-skill' at root of skill FS after auto-detect strip (with file at root), stat error: %v", err)
+	skills, discoverErr := agentskill.Discover(s.fs)
+	if discoverErr != nil {
+		t.Fatalf("Discover: %v", discoverErr)
+	}
+	found := false
+	for _, sk := range skills {
+		if sk.Dir == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of s.fs after auto-detect strip (with file at root), got: %v", skills)
+	}
+	// Verify "skills" wrapper dir was stripped.
+	if _, statErr := fs.Stat(s.fs, "skills"); statErr == nil {
+		t.Error("'skills' dir should have been stripped from root, but it still exists")
 	}
 }
 
