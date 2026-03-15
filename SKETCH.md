@@ -79,7 +79,7 @@ skills/
 ### 利用例
 
 ```go
-//go:embed skills/**
+//go:embed skills
 var skillsFS embed.FS
 
 func main() {

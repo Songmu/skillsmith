@@ -22,7 +22,7 @@ With skillsmith, you can embed skill files into your Go binary using `embed.FS` 
 ## Synopsis
 
 ```go
-//go:embed skills/**
+//go:embed skills
 var skillsFS embed.FS
 
 func run(ctx context.Context, args []string) error {

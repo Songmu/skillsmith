@@ -5,7 +5,7 @@ import (
 	"io/fs"
 )
 
-//go:embed skills/**
+//go:embed skills
 var skillsFS embed.FS
 
 // DemoFS returns the embedded demo skills filesystem.
