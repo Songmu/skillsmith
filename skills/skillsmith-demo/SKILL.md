@@ -28,11 +28,11 @@ those skills in the user's agent environment.
 # List skills bundled with this tool
 mytool skills list
 
-# Install skills into the default agent directory (~/.claude/skills)
+# Install skills into the default skills directory (~/.agents/skills)
 mytool skills install
 
-# Install skills for a specific agent
-mytool skills install --agent codex --scope user
+# Install skills scoped to the current repository
+mytool skills install --scope repo
 
 # Install skills to a custom directory
 mytool skills install --prefix /path/to/skills
