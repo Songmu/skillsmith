@@ -21,9 +21,21 @@ func (s *Smith) cmdList(_ context.Context, args []string, out, errW io.Writer) e
 	}
 
 	skills, discoverErr := agentskill.Discover(s.FS)
+	var fatalErr error
 	eachError(discoverErr, func(e error) {
-		fmt.Fprintf(errW, "warning: %v\n", e)
+		var se *agentskill.SkillError
+		if errors.As(e, &se) {
+			fmt.Fprintf(errW, "warning: %v\n", e)
+			return
+		}
+		// Treat non-*SkillError errors as fatal.
+		if fatalErr == nil {
+			fatalErr = e
+		}
 	})
+	if fatalErr != nil {
+		return fatalErr
+	}
 
 	if len(skills) == 0 {
 		fmt.Fprintln(out, "no skills found")
