@@ -1,12 +1,12 @@
 package skillsmith
 
 import (
+	crand "crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	crand "crypto/rand"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"time"
