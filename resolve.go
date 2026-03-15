@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // InstallDirForScope returns the skill installation directory for the given
@@ -16,23 +15,14 @@ import (
 func InstallDirForScope(scope string) (string, error) {
 	switch scope {
 	case "", "user":
-		return expandHome("~/.agents/skills")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolving home directory: %w", err)
+		}
+		return filepath.Join(home, ".agents", "skills"), nil
 	case "repo":
-		return filepath.FromSlash(".agents/skills"), nil
+		return filepath.Join(".agents", "skills"), nil
 	default:
 		return "", fmt.Errorf("unknown scope %q (supported: user, repo)", scope)
 	}
-}
-
-// expandHome replaces a leading "~" with the user's home directory and
-// normalizes path separators for the current OS.
-func expandHome(p string) (string, error) {
-	if !strings.HasPrefix(p, "~") {
-		return filepath.FromSlash(p), nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolving home directory: %w", err)
-	}
-	return filepath.Join(home, p[1:]), nil
 }
