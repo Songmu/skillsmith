@@ -187,8 +187,8 @@ func TestCopySkills_Update_VersionWithoutVPrefix(t *testing.T) {
 	}
 
 	meta, _ := ReadMeta(filepath.Join(dest, "mytool"))
-	if meta.Version != "v2.0.0" {
-		t.Errorf("expected normalized version v2.0.0 after update, got %q", meta.Version)
+	if meta.Version != "2.0.0" {
+		t.Errorf("expected version 2.0.0 after update, got %q", meta.Version)
 	}
 }
 
