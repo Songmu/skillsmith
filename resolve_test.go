@@ -44,9 +44,9 @@ func TestInstallDirForScope_Repo(t *testing.T) {
 		t.Errorf("InstallDirForScope(\"repo\") = %q, want path ending with .agents/skills", got)
 	}
 
-	root, err := FindRepoRoot()
+	root, err := findRepoRoot()
 	if err != nil {
-		t.Fatalf("FindRepoRoot error: %v", err)
+		t.Fatalf("findRepoRoot error: %v", err)
 	}
 	want := filepath.Join(root, ".agents", "skills")
 	if got != want {
@@ -62,12 +62,12 @@ func TestInstallDirForScope_UnknownScope(t *testing.T) {
 }
 
 func TestFindRepoRoot_FromRepoDir(t *testing.T) {
-	root, err := FindRepoRoot()
+	root, err := findRepoRoot()
 	if err != nil {
-		t.Fatalf("FindRepoRoot() error: %v", err)
+		t.Fatalf("findRepoRoot() error: %v", err)
 	}
 	if !filepath.IsAbs(root) {
-		t.Errorf("FindRepoRoot() = %q, want absolute path", root)
+		t.Errorf("findRepoRoot() = %q, want absolute path", root)
 	}
 	fi, err := os.Lstat(filepath.Join(root, ".git"))
 	if err != nil {
@@ -95,20 +95,20 @@ func TestFindRepoRoot_FromSubdir(t *testing.T) {
 		t.Skipf("cannot chdir to agentskill subdir: %v", err)
 	}
 
-	root, err := FindRepoRoot()
+	root, err := findRepoRoot()
 	if err != nil {
-		t.Fatalf("FindRepoRoot() from subdir error: %v", err)
+		t.Fatalf("findRepoRoot() from subdir error: %v", err)
 	}
 
 	// The root found from subdir should match the root found from the original dir.
 	if err := os.Chdir(orig); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := FindRepoRoot()
+	expected, err := findRepoRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if root != expected {
-		t.Errorf("FindRepoRoot() from subdir = %q, want %q", root, expected)
+		t.Errorf("findRepoRoot() from subdir = %q, want %q", root, expected)
 	}
 }
