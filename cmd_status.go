@@ -29,9 +29,20 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 	}
 
 	skills, discoverErr := agentskill.Discover(s.FS)
+	var fatalErr error
 	eachError(discoverErr, func(e error) {
-		fmt.Fprintf(errW, "warning: %v\n", e)
+		var se *agentskill.SkillError
+		if errors.As(e, &se) {
+			fmt.Fprintf(errW, "warning: %v\n", e)
+			return
+		}
+		if fatalErr == nil {
+			fatalErr = e
+		}
 	})
+	if fatalErr != nil {
+		return fatalErr
+	}
 
 	for _, skill := range skills {
 		dest := filepath.Join(dir, skill.Dir)
