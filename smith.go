@@ -31,10 +31,9 @@ type Smith struct {
 }
 
 // skillsFS returns the effective skills FS. If the root of s.FS contains
-// exactly one directory and no files, AND that directory itself contains only
-// subdirectories (not files), it is treated as an embed container prefix and
-// stripped via fs.Sub. Otherwise s.FS is used as-is.
-// The result is cached after the first call.
+// exactly one directory named "skills" and no files, it is treated as an
+// embed container prefix and stripped via fs.Sub. Otherwise s.FS is used
+// as-is. The result is cached after the first call.
 func (s *Smith) skillsFS() fs.FS {
 	s.skillsFSOnce.Do(func() {
 		entries, err := fs.ReadDir(s.FS, ".")
@@ -52,33 +51,13 @@ func (s *Smith) skillsFS() fs.FS {
 				return
 			}
 		}
-		if len(dirs) != 1 {
+		// Only strip when there is exactly one directory and it is named "skills".
+		// Any other name indicates the directory is itself a skill, not a container.
+		if len(dirs) != 1 || dirs[0] != "skills" {
 			s.skillsFSVal = s.FS
 			return
 		}
-		// There is exactly one directory at root. Check whether it looks like
-		// a container (holds only subdirs) rather than a skill dir (holds files).
-		inner, err := fs.ReadDir(s.FS, dirs[0])
-		if err != nil {
-			s.skillsFSVal = s.FS
-			return
-		}
-		if len(inner) == 0 {
-			// Empty directory: cannot determine intent, use s.FS as-is.
-			s.skillsFSVal = s.FS
-			return
-		}
-		for _, e := range inner {
-			if !e.IsDir() {
-				// The single root dir contains files — it is itself a skill
-				// directory, not a container. Use s.FS as-is.
-				s.skillsFSVal = s.FS
-				return
-			}
-		}
-		// The single root dir contains only subdirectories: treat it as an
-		// embed prefix and strip it.
-		sub, err := fs.Sub(s.FS, dirs[0])
+		sub, err := fs.Sub(s.FS, "skills")
 		if err != nil {
 			s.skillsFSVal = s.FS
 			return
