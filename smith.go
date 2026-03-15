@@ -140,7 +140,7 @@ type commonFlags struct {
 func addCommonFlags(f *flag.FlagSet, cf *commonFlags) {
 	f.BoolVar(&cf.dryRun, "dry-run", false, "print what would happen without making changes")
 	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (overrides --scope)")
-	f.StringVar(&cf.scope, "scope", "", "target scope: user (~/.agents/skills, default) or repo (.agents/skills)")
+	f.StringVar(&cf.scope, "scope", "", "target scope: user (~/.agents/skills, default) or repo (<repo-root>/.agents/skills)")
 	f.BoolVar(&cf.force, "force", false, "overwrite unmanaged skills")
 }
 
