@@ -37,8 +37,6 @@ var subcommands = []struct{ name, desc string }{
 }
 
 // Run parses args and dispatches to the matching subcommand.
-// Common flags (--dry-run, --prefix, --scope, --force) are parsed
-// before the subcommand is dispatched.
 func (s *Smith) Run(ctx context.Context, args []string) error {
 	out := s.outWriter()
 	errW := s.errWriter()
