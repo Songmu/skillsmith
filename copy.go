@@ -151,7 +151,7 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 
 	case ModeUpdate:
 		if !managed {
-			// Not managed — skip silently.
+			// Not managed — skip with a user-visible reason.
 			return "skipped", fmt.Sprintf("skill %q is not managed by skillsmith", skill.Dir), nil
 		}
 		meta, readErr := ReadMeta(dest)
