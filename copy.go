@@ -187,27 +187,54 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 		return label, fmt.Sprintf("[dry-run] would %s skill %q", label, skill.Dir), nil
 	}
 
-	// Perform the actual file copy.
-	if err := copyFSDir(src, skill.Dir, dest); err != nil {
-		return "", "", err
-	}
-
-	// Write metadata.
-	meta := &SkillMeta{
-		InstalledBy: opts.Name,
-		Version:     opts.Version,
-		InstalledAt: time.Now().UTC(),
-	}
-	if err := WriteMeta(dest, meta); err != nil {
-		return "", "", fmt.Errorf("writing metadata for %q: %w", skill.Dir, err)
-	}
-
+	// Determine the label for the action.
 	label := "installed"
 	if opts.Mode == ModeUpdate {
 		label = "updated"
 	} else if opts.Mode == ModeReinstall {
 		label = "reinstalled"
 	}
+
+	// When the destination already exists, back it up first so that a failed
+	// copy can be rolled back without leaving a partially-written skill behind.
+	backup := dest + ".bak"
+	destExists := false
+	if _, statErr := os.Stat(dest); statErr == nil {
+		destExists = true
+		if renameErr := os.Rename(dest, backup); renameErr != nil {
+			return "", "", fmt.Errorf("creating backup of %q: %w", skill.Dir, renameErr)
+		}
+	}
+
+	// Perform the actual file copy.
+	copyErr := copyFSDir(src, skill.Dir, dest)
+	if copyErr == nil {
+		// Write metadata.
+		meta := &SkillMeta{
+			InstalledBy: opts.Name,
+			Version:     opts.Version,
+			InstalledAt: time.Now().UTC(),
+		}
+		copyErr = WriteMeta(dest, meta)
+		if copyErr != nil {
+			copyErr = fmt.Errorf("writing metadata for %q: %w", skill.Dir, copyErr)
+		}
+	}
+
+	if copyErr != nil {
+		// Restore the backup if the copy or metadata write failed.
+		if destExists {
+			_ = os.RemoveAll(dest)
+			_ = os.Rename(backup, dest)
+		}
+		return "", "", copyErr
+	}
+
+	// Success — remove the backup.
+	if destExists {
+		_ = os.RemoveAll(backup)
+	}
+
 	return label, "", nil
 }
 
