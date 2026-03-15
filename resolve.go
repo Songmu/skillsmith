@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// FindRepoRoot traverses parent directories from the current working directory
+// findRepoRoot traverses parent directories from the current working directory
 // to find the repository root (the directory containing a .git entry).
 //
 // It uses os.Lstat to avoid following symlinks: .git must be a directory
