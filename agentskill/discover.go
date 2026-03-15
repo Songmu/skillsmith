@@ -1,6 +1,7 @@
 package agentskill
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -38,6 +39,11 @@ func Discover(fsys fs.FS) ([]Skill, []error) {
 		f, err := fsys.Open(skillPath)
 		if err != nil {
 			// No SKILL.md in this directory — silently skip.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			// Other I/O errors are recorded as non-fatal discovery errors.
+			errs = append(errs, fmt.Errorf("discover: %s: open error: %w", skillPath, err))
 			continue
 		}
 
