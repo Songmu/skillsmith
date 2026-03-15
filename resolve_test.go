@@ -42,15 +42,38 @@ func TestInstallDirForScope(t *testing.T) {
 	}
 
 	t.Run("repo scope returns absolute path under repo root", func(t *testing.T) {
+		// Create a fake repo and chdir into a nested directory under it so the test
+		// does not depend on the real working directory containing a .git entry.
+		fakeRoot := setupFakeRepo(t, false)
+
+		nestedDir := filepath.Join(fakeRoot, "sub", "dir")
+		if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+			t.Fatalf("failed to create nested directory: %v", err)
+		}
+
+		origWD, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("failed to get working directory: %v", err)
+		}
+
+		if err := os.Chdir(nestedDir); err != nil {
+			t.Fatalf("failed to chdir to nested directory: %v", err)
+		}
+
+		t.Cleanup(func() {
+			if err := os.Chdir(origWD); err != nil {
+				t.Fatalf("failed to restore working directory: %v", err)
+			}
+		})
+
 		got, err := InstallDirForScope("repo")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !filepath.IsAbs(got) {
-			t.Errorf("got %q, want absolute path", got)
-		}
-		if !strings.HasSuffix(got, filepath.Join(".agents", "skills")) {
-			t.Errorf("got %q, want path ending with .agents/skills", got)
+
+		want := filepath.Join(fakeRoot, ".agents", "skills")
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
 		}
 	})
 }
