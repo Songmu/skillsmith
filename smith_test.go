@@ -86,7 +86,9 @@ func TestNew_AutoDetect(t *testing.T) {
 		name          string
 		fsys          fstest.MapFS
 		wantSkillDir  string
-		wantSkillsDir bool // true means "skills/" should be stripped (absent from root)
+		// wantSkillsDir indicates whether a "skills/" directory should remain at the root
+		// after auto-detection. If false, "skills/" is expected to be stripped/absent.
+		wantSkillsDir bool
 		wantReadme    bool // true means README.md should be present at root
 	}{
 		{
