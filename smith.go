@@ -8,62 +8,89 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"sync"
+	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 // Smith is the main entry point for the skillsmith skills subcommand.
-// Embed an fs.FS containing skill directories and call Run to dispatch
-// to the appropriate subcommand.
+// Create one with New and call Run to dispatch to the appropriate subcommand.
 type Smith struct {
-	// FS holds the embedded or in-memory skill files.
-	FS fs.FS
-	// Version is the version string of the hosting CLI tool.
-	Version string
-	// Name is the name of the hosting CLI tool (written to .skillsmith.json).
-	Name string
+	// FlagSet is the top-level flag set, created by New.
+	FlagSet *flag.FlagSet
 	// OutWriter is the writer for normal output (defaults to os.Stdout).
 	OutWriter io.Writer
 	// ErrWriter is the writer for error / diagnostic output (defaults to os.Stderr).
 	ErrWriter io.Writer
 
-	skillsFSOnce sync.Once
-	skillsFSVal  fs.FS
+	name    string // name of the hosting CLI tool
+	version string // version stored as provided by the caller
+	fs      fs.FS  // auto-detected skills FS
 }
 
-// skillsFS returns the effective skills FS. If the root of s.FS contains a
-// directory named "skills" (and no other directories), it is treated as an
-// embed container prefix and stripped via fs.Sub. Files at root are ignored
-// for this check. Otherwise s.FS is used as-is.
-// The result is cached after the first call.
-func (s *Smith) skillsFS() fs.FS {
-	s.skillsFSOnce.Do(func() {
-		entries, err := fs.ReadDir(s.FS, ".")
-		if err != nil {
-			s.skillsFSVal = s.FS
-			return
-		}
+// New creates a Smith with the given name, version and skill filesystem.
+//
+// Version validation: if version does not start with "v", one is prepended
+// for validation only. The version is stored as provided.
+//
+// FS auto-detection: if the root of skillFS contains exactly one directory
+// named "skills" (files at root are ignored), that directory is used as the
+// skill root via fs.Sub. Otherwise skillFS is used as-is.
+func New(name, version string, skillFS fs.FS) (*Smith, error) {
+	if skillFS == nil {
+		return nil, errors.New("skill filesystem cannot be nil")
+	}
+
+	// Validate version using semver (requires "v" prefix).
+	vv := version
+	if !strings.HasPrefix(vv, "v") {
+		vv = "v" + vv
+	}
+	if !semver.IsValid(vv) {
+		return nil, fmt.Errorf("invalid version %q", version)
+	}
+
+	// FS auto-detection: strip "skills/" prefix when it is the only directory.
+	detectedFS := skillFS
+	entries, err := fs.ReadDir(skillFS, ".")
+	if err == nil {
 		var dirs []string
 		for _, e := range entries {
 			if e.IsDir() {
 				dirs = append(dirs, e.Name())
 			}
-			// Files at root are ignored: e.g. README.md alongside skills/.
+			// Files at root are intentionally ignored.
 		}
-		// Only strip when there is exactly one directory and it is named "skills".
-		// Any other name indicates the directory is itself a skill, not a container.
-		if len(dirs) != 1 || dirs[0] != "skills" {
-			s.skillsFSVal = s.FS
-			return
+		if len(dirs) == 1 && dirs[0] == "skills" {
+			if sub, subErr := fs.Sub(skillFS, "skills"); subErr == nil {
+				detectedFS = sub
+			}
 		}
-		sub, err := fs.Sub(s.FS, "skills")
-		if err != nil {
-			s.skillsFSVal = s.FS
-			return
+	}
+
+	s := &Smith{
+		name:    name,
+		version: version,
+		fs:      detectedFS,
+		FlagSet: flag.NewFlagSet(name+" skills", flag.ContinueOnError),
+	}
+	s.FlagSet.Usage = func() {
+		errW := s.errWriter()
+		fmt.Fprintf(errW, "Usage: %s <command> [options]\n\n", s.FlagSet.Name())
+		fmt.Fprintf(errW, "Commands:\n")
+		for _, cmd := range subcommands {
+			fmt.Fprintf(errW, "  %-12s %s\n", cmd.name, cmd.desc)
 		}
-		s.skillsFSVal = sub
-	})
-	return s.skillsFSVal
+		fmt.Fprintf(errW, "\nRun '%s <command> --help' for command-specific options.\n", s.FlagSet.Name())
+	}
+	return s, nil
 }
+
+// Name returns the name of the hosting CLI tool.
+func (s *Smith) Name() string { return s.name }
+
+// Version returns the version string as provided to New.
+func (s *Smith) Version() string { return s.version }
 
 // subcommands lists the available subcommands and their one-line descriptions.
 var subcommands = []struct{ name, desc string }{
@@ -80,16 +107,8 @@ func (s *Smith) Run(ctx context.Context, args []string) error {
 	out := s.outWriter()
 	errW := s.errWriter()
 
-	top := flag.NewFlagSet("skills", flag.ContinueOnError)
+	top := s.FlagSet
 	top.SetOutput(errW)
-	top.Usage = func() {
-		fmt.Fprintf(errW, "Usage: skills <command> [options]\n\n")
-		fmt.Fprintf(errW, "Commands:\n")
-		for _, cmd := range subcommands {
-			fmt.Fprintf(errW, "  %-12s %s\n", cmd.name, cmd.desc)
-		}
-		fmt.Fprintf(errW, "\nRun 'skills <command> --help' for command-specific options.\n")
-	}
 
 	// Parse only the subcommand name; let subcommand parsers handle the rest.
 	if err := top.Parse(args); err != nil {

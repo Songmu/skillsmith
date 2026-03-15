@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/Songmu/skillsmith/agentskill"
 )
@@ -28,7 +29,7 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 		return err
 	}
 
-	skills, discoverErr := agentskill.Discover(s.skillsFS())
+	skills, discoverErr := agentskill.Discover(s.fs)
 	var fatalErr error
 	eachError(discoverErr, func(e error) {
 		var se *agentskill.SkillError
@@ -57,10 +58,10 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 			continue
 		}
 
-		if meta.Version == s.Version {
+		if strings.TrimPrefix(meta.Version, "v") == strings.TrimPrefix(s.version, "v") {
 			fmt.Fprintf(out, "%-30s installed %s (up to date)\n", skill.Dir, meta.Version)
 		} else {
-			fmt.Fprintf(out, "%-30s installed %s → available %s\n", skill.Dir, meta.Version, s.Version)
+			fmt.Fprintf(out, "%-30s installed %s → available %s\n", skill.Dir, meta.Version, s.version)
 		}
 	}
 	return nil

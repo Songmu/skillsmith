@@ -81,10 +81,9 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
     if len(args) > 0 && args[0] == "skills" {
-        s := &skillsmith.Smith{
-            FS:      skillsFS,
-            Version: version,
-            Name:    "mytool",
+        s, err := skillsmith.New("mytool", version, skillsFS)
+        if err != nil {
+            log.Fatal(err)
         }
         return s.Run(ctx, args[1:])
     }

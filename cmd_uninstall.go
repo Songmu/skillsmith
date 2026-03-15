@@ -29,7 +29,7 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	skills, discoverErr := agentskill.Discover(s.skillsFS())
+	skills, discoverErr := agentskill.Discover(s.fs)
 	if discoverErr != nil {
 		var skillErr *agentskill.SkillError
 		if !errors.As(discoverErr, &skillErr) {
