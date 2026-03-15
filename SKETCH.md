@@ -18,7 +18,8 @@
 - Agent Skills の管理用途に十分な機能を持つ
 - `embed.FS` （`fs.FS`）を利用する想定
 - skills のフォーマットは [agentskills 仕様](https://agentskills.io/specification) に従う
-- YAML パースが必要な場合は [goccy/go-yaml](https://github.com/goccy/go-yaml) を使用する
+- YAML パースには [goccy/go-yaml](https://github.com/goccy/go-yaml) を使用
+- バージョン管理には [golang.org/x/mod/semver](https://pkg.go.dev/golang.org/x/mod/semver) を使用
 
 
 ## ユースケース
@@ -31,7 +32,7 @@
 
 `$repo/skills` にagentskill のファイル群を置いておくことがプラクティスになりつつある。
 
-skillsmithはさらに、それをGoのCLIバイナリに埋め込むことで、cliツールをAIフレンドリーにする。具体的には `skills/` ディレクトリを `embed.FS` で埋め込み、ユーザー環境へ展開することを想定している。
+skillsmithはさらに、それをGoのCLIバイナリに埋め込むことで、cliツールをAIフレンドリーにする。具体的には `skills/` ディレクトリを `embed.FS` で埋め込み、ユーザー環境へ展開することを想定している。`New` コンストラクタが `skills/` プレフィックスを自動検出・除去するため、利用者は `fs.Sub` を呼ぶ必要がない。
 
 ```text
 skills/
@@ -46,7 +47,7 @@ skills/
 
 ## 全体アーキテクチャ
 
-`skillsmith` は大きく以下の層に分かれる。初期実装では 2〜5 を優先し、1 は後回しとする。
+`skillsmith` は大きく以下の層に分かれる。
 
 1. **サブコマンドアタッチ層**（後回し）
     - 各種コマンドラインライブラリに対して、`skills` サブコマンドを追加するためのインターフェースと実装を提供する
@@ -58,11 +59,21 @@ skills/
 3. **Skill 配布層**
    - `embed.FS` または任意の `fs.FS` から skill ディレクトリを列挙・コピーする
 4. **インストール先解決層**
-   - `--prefix` または既定値（`~/.agents/skills`）から配置先を決定する
-5. **SKILL.md パース・バリデーション層**
+   - `--prefix` / `--scope` または既定値（`~/.agents/skills`）から配置先を決定する
+   - `--scope repo` 時はリポジトリルートを自動検出する
+5. **SKILL.md パース・バリデーション層**（`agentskills` サブパッケージ）
    - agentskills 仕様に基づく SKILL.md の frontmatter パース・バリデーション
-   - サブパッケージとして切り出し、skillsmith 外でも利用可能にする
-   - `fs.FS` 対応（`embed.FS` から直接読めるようにする）
+   - サブパッケージとして切り出し、skillsmith 外でも利用可能
+   - `fs.FS` 対応（`embed.FS` から直接読める）
+
+
+### コンストラクタ
+
+`skillsmith.New(name, version string, skillFS fs.FS) (*Smith, error)` でインスタンスを生成する。
+
+- `version` は semver 形式（`"1.2.3"` または `"v1.2.3"`）。`v` プレフィックスがなくても検証時に自動補完してチェックする。内部的には入力そのままを保持する
+- `skillFS` のルート直下に `skills/` ディレクトリが1つだけある場合、自動的にプレフィックスを除去する
+- `flag.FlagSet` を作成し `Smith.FlagSet` にセットする
 
 
 ### 利用例
@@ -109,7 +120,7 @@ func run(ctx context.Context, args []string) error {
 | `reinstall` | 管理下スキルをバージョン無視で全再インストール |
 | `uninstall` | 管理下スキルを削除 |
 | `status` | インストール状態・バージョン差分を表示 |
-| `show <name>` | 任意。個別スキルの詳細表示 |
+| `show <name>` | 未実装。個別スキルの詳細表示 |
 
 ### コマンドイメージ
 
@@ -187,8 +198,8 @@ mytool skills uninstall
 }
 ```
 
-- `installedBy`: インストールを行った CLI ツール名（`Skillsmith.Name` の値）
-- `version`: インストール時の CLI ツールのバージョン（`Skillsmith.Version` の値）
+- `installedBy`: インストールを行った CLI ツール名（`New` の `name` 引数）
+- `version`: インストール時の CLI ツールのバージョン（`New` の `version` 引数）
 - `installedAt`: インストール日時（RFC 3339）
 
 ### 判定ルール
@@ -199,10 +210,15 @@ mytool skills uninstall
 |------|---------|--------|-----------|-----------|
 | `.skillsmith.json` なし（管理外） | 新規インストール | 対象外 | 上書きしない | 対象外 |
 | `.skillsmith.json` あり・同一バージョン | スキップ | スキップ | 上書き | 削除 |
-| `.skillsmith.json` あり・異なるバージョン | スキップ（警告） | 更新 | 上書き | 削除 |
+| `.skillsmith.json` あり・古いバージョン | スキップ（警告） | 更新 | 上書き | 削除 |
+| `.skillsmith.json` あり・新しいバージョン | スキップ（警告） | スキップ | スキップ | 削除 |
 
+- バージョン比較は `semver.Compare` を使用する
+- update はインストール済みバージョンより新しい場合のみ更新する
+- reinstall はインストール済みバージョンが新しい場合（ダウングレード）はスキップする
 - 管理外スキルと同名のスキルを install しようとした場合は警告し、`--force` で上書き可能
 - install でスキップされた場合は `update` または `reinstall` を案内する
+- reinstall のダウングレードは `--force` で強制可能
 
 
 ## tagline 案
