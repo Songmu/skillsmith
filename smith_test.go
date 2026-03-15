@@ -25,12 +25,14 @@ Teaches the agent how to use demo.
 	},
 }
 
-func newTestSmith(fsys fstest.MapFS) (*Smith, *bytes.Buffer, *bytes.Buffer) {
+func newTestSmith(t *testing.T, fsys fstest.MapFS) (*Smith, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+
 	out := &bytes.Buffer{}
 	errW := &bytes.Buffer{}
 	s, err := New("testtool", "v1.0.0", fsys)
 	if err != nil {
-		panic(err)
+		t.Fatalf("New(%q, %q) failed: %v", "testtool", "v1.0.0", err)
 	}
 	s.OutWriter = out
 	s.ErrWriter = errW
