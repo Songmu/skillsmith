@@ -179,14 +179,10 @@ func copySkill(src fs.FS, destDir string, skill *agentskill.Skill, opts CopyOpti
 
 	if opts.DryRun {
 		label := "installed"
-		if managed {
-			label = map[CopyMode]string{
-				ModeUpdate:    "updated",
-				ModeReinstall: "reinstalled",
-			}[opts.Mode]
-			if label == "" {
-				label = "installed"
-			}
+		if opts.Mode == ModeUpdate {
+			label = "updated"
+		} else if opts.Mode == ModeReinstall {
+			label = "reinstalled"
 		}
 		return label, fmt.Sprintf("[dry-run] would %s skill %q", label, skill.Dir), nil
 	}
