@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 )
 
 // Smith is the main entry point for the skillsmith skills subcommand.
@@ -24,6 +25,44 @@ type Smith struct {
 	OutWriter io.Writer
 	// ErrWriter is the writer for error / diagnostic output (defaults to os.Stderr).
 	ErrWriter io.Writer
+
+	skillsFSOnce sync.Once
+	skillsFSVal  fs.FS
+}
+
+// skillsFS returns the effective skills FS. If the root of s.FS contains a
+// directory named "skills" (and no other directories), it is treated as an
+// embed container prefix and stripped via fs.Sub. Files at root are ignored
+// for this check. Otherwise s.FS is used as-is.
+// The result is cached after the first call.
+func (s *Smith) skillsFS() fs.FS {
+	s.skillsFSOnce.Do(func() {
+		entries, err := fs.ReadDir(s.FS, ".")
+		if err != nil {
+			s.skillsFSVal = s.FS
+			return
+		}
+		var dirs []string
+		for _, e := range entries {
+			if e.IsDir() {
+				dirs = append(dirs, e.Name())
+			}
+			// Files at root are ignored: e.g. README.md alongside skills/.
+		}
+		// Only strip when there is exactly one directory and it is named "skills".
+		// Any other name indicates the directory is itself a skill, not a container.
+		if len(dirs) != 1 || dirs[0] != "skills" {
+			s.skillsFSVal = s.FS
+			return
+		}
+		sub, err := fs.Sub(s.FS, "skills")
+		if err != nil {
+			s.skillsFSVal = s.FS
+			return
+		}
+		s.skillsFSVal = sub
+	})
+	return s.skillsFSVal
 }
 
 // subcommands lists the available subcommands and their one-line descriptions.

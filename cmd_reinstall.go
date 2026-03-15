@@ -25,7 +25,7 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	result, err := CopySkills(s.FS, dir, CopyOptions{
+	result, err := CopySkills(s.skillsFS(), dir, CopyOptions{
 		Mode:    ModeReinstall,
 		Force:   cf.force,
 		DryRun:  cf.dryRun,

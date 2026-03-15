@@ -3,6 +3,7 @@ package skillsmith
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -155,5 +156,133 @@ func TestSmith_Reinstall(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "reinstalled") {
 		t.Errorf("reinstall output missing 'reinstalled', got: %q", out.String())
+	}
+}
+
+// wrappedSkillFS wraps testSkillFS under a "skills/" directory to simulate
+// what //go:embed skills/** produces.
+var wrappedSkillFS = fstest.MapFS{
+	"skills/demo-skill/SKILL.md": {
+		Data: []byte(`---
+name: demo-skill
+description: A demonstration skill
+license: MIT
+---
+# demo-skill
+
+Teaches the agent how to use demo.
+`),
+	},
+}
+
+// mixedRootFS has a file at root alongside a non-"skills" directory.
+// The file is ignored for detection; the dir is not named "skills", so the FS
+// is used as-is.
+var mixedRootFS = fstest.MapFS{
+	"README.md": {Data: []byte("readme")},
+	"demo-skill/SKILL.md": {
+		Data: []byte(`---
+name: demo-skill
+description: A demonstration skill
+license: MIT
+---
+# demo-skill
+
+Teaches the agent how to use demo.
+`),
+	},
+}
+
+// wrappedWithFileFS wraps skills under "skills/" and also has a README.md at root,
+// simulating an embed FS where files coexist with the skills container dir.
+var wrappedWithFileFS = fstest.MapFS{
+	"README.md": {Data: []byte("readme")},
+	"skills/demo-skill/SKILL.md": {
+		Data: []byte(`---
+name: demo-skill
+description: A demonstration skill
+license: MIT
+---
+# demo-skill
+
+Teaches the agent how to use demo.
+`),
+	},
+}
+
+func TestSkillsFS_SingleDir_AutoDetects(t *testing.T) {
+	s := &Smith{FS: wrappedSkillFS}
+	detected := s.skillsFS()
+	entries, err := fs.ReadDir(detected, ".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() == "skills" {
+			t.Error("skillsFS() should have stripped the 'skills/' prefix, but 'skills' dir still present at root")
+		}
+	}
+	// demo-skill should be visible at root of the detected FS.
+	found := false
+	for _, e := range entries {
+		if e.Name() == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
+	}
+}
+
+func TestSkillsFS_PreStripped_UsesAsIs(t *testing.T) {
+	s := &Smith{FS: testSkillFS}
+	detected := s.skillsFS()
+	entries, err := fs.ReadDir(detected, ".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	// demo-skill should be at root directly (already stripped).
+	found := false
+	for _, e := range entries {
+		if e.Name() == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
+	}
+}
+
+func TestSkillsFS_MixedRoot_UsesAsIs(t *testing.T) {
+	s := &Smith{FS: mixedRootFS}
+	detected := s.skillsFS()
+	// The only directory is "demo-skill" (not "skills"), so the FS is used as-is.
+	// README.md must still be visible at root.
+	if _, err := fs.Stat(detected, "README.md"); err != nil {
+		t.Errorf("expected README.md at root of skillsFS() for mixed-root FS, got: %v", err)
+	}
+}
+
+func TestSkillsFS_SkillsDirWithFileAtRoot_AutoDetects(t *testing.T) {
+	s := &Smith{FS: wrappedWithFileFS}
+	detected := s.skillsFS()
+	// Files at root (e.g. README.md) are ignored; "skills/" is still stripped.
+	entries, err := fs.ReadDir(detected, ".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() == "skills" {
+			t.Error("skillsFS() should have stripped the 'skills/' prefix, but 'skills' dir still present at root")
+		}
+	}
+	found := false
+	for _, e := range entries {
+		if e.Name() == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'demo-skill' at root of skillsFS(), got entries: %v", entries)
 	}
 }
