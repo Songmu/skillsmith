@@ -177,8 +177,10 @@ func (s *Smith) installDir(opts Options) (string, error) {
 	return InstallDirForScope(opts.Scope)
 }
 
-// List returns the discovered skills from the embedded filesystem.
-func (s *Smith) List(ctx context.Context) ([]*agentskills.Skill, error) {
+// discoverSkills discovers skills from the embedded filesystem, treating
+// per-skill errors as non-fatal (they are silently skipped) and returning
+// only fatal discovery errors.
+func (s *Smith) discoverSkills() ([]*agentskills.Skill, error) {
 	skills, discoverErr := agentskills.Discover(s.fs)
 	var fatalErr error
 	eachError(discoverErr, func(e error) {
@@ -190,10 +192,12 @@ func (s *Smith) List(ctx context.Context) ([]*agentskills.Skill, error) {
 			fatalErr = e
 		}
 	})
-	if fatalErr != nil {
-		return nil, fatalErr
-	}
-	return skills, nil
+	return skills, fatalErr
+}
+
+// List returns the discovered skills from the embedded filesystem.
+func (s *Smith) List(ctx context.Context) ([]*agentskills.Skill, error) {
+	return s.discoverSkills()
 }
 
 // Install installs skills that are not yet present.
@@ -248,19 +252,9 @@ func (s *Smith) Uninstall(ctx context.Context, opts Options) (*UninstallResult, 
 		return nil, err
 	}
 
-	skills, discoverErr := agentskills.Discover(s.fs)
-	var fatalErr error
-	eachError(discoverErr, func(e error) {
-		var se *agentskills.SkillError
-		if errors.As(e, &se) {
-			return
-		}
-		if fatalErr == nil {
-			fatalErr = e
-		}
-	})
-	if fatalErr != nil {
-		return nil, fatalErr
+	skills, err := s.discoverSkills()
+	if err != nil {
+		return nil, err
 	}
 
 	result := &UninstallResult{}
@@ -328,19 +322,9 @@ func (s *Smith) Status(ctx context.Context, opts Options) (*StatusResult, error)
 		return nil, err
 	}
 
-	skills, discoverErr := agentskills.Discover(s.fs)
-	var fatalErr error
-	eachError(discoverErr, func(e error) {
-		var se *agentskills.SkillError
-		if errors.As(e, &se) {
-			return
-		}
-		if fatalErr == nil {
-			fatalErr = e
-		}
-	})
-	if fatalErr != nil {
-		return nil, fatalErr
+	skills, err := s.discoverSkills()
+	if err != nil {
+		return nil, err
 	}
 
 	result := &StatusResult{}
