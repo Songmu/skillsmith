@@ -8,11 +8,11 @@ import (
 	"io"
 )
 
-func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writer) error {
+func (s *Smith) cmdReinstall(ctx context.Context, args []string, out, errW io.Writer) error {
 	f := flag.NewFlagSet("reinstall", flag.ContinueOnError)
 	f.SetOutput(errW)
-	var cf commonFlags
-	addCommonFlags(f, &cf)
+	var opts Options
+	addCommonFlags(f, &opts)
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -20,18 +20,7 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	dir, err := s.installDir(cf)
-	if err != nil {
-		return err
-	}
-
-	result, err := CopySkills(s.fs, dir, CopyOptions{
-		Mode:    ModeReinstall,
-		Force:   cf.force,
-		DryRun:  cf.dryRun,
-		Name:    s.name,
-		Version: s.version,
-	})
+	result, err := s.Reinstall(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -39,7 +28,7 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 	for _, a := range result.Actions {
 		switch a.Action {
 		case "reinstalled":
-			if cf.dryRun {
+			if opts.DryRun {
 				fmt.Fprintf(out, "reinstalled (dry-run): %s\n", a.Dir)
 			} else {
 				fmt.Fprintf(out, "reinstalled: %s\n", a.Dir)
@@ -49,7 +38,7 @@ func (s *Smith) cmdReinstall(_ context.Context, args []string, out, errW io.Writ
 		}
 	}
 
-	if cf.dryRun {
+	if opts.DryRun {
 		fmt.Fprintln(out, "[dry-run] no changes were made")
 	}
 	return nil

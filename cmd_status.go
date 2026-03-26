@@ -6,16 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"path/filepath"
-
-	"github.com/Songmu/skillsmith/agentskills"
 )
 
-func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer) error {
+func (s *Smith) cmdStatus(ctx context.Context, args []string, out, errW io.Writer) error {
 	f := flag.NewFlagSet("status", flag.ContinueOnError)
 	f.SetOutput(errW)
-	var cf commonFlags
-	addCommonFlags(f, &cf)
+	var opts Options
+	addCommonFlags(f, &opts)
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -23,46 +20,21 @@ func (s *Smith) cmdStatus(_ context.Context, args []string, out, errW io.Writer)
 		return err
 	}
 
-	dir, err := s.installDir(cf)
+	result, err := s.Status(ctx, opts)
 	if err != nil {
 		return err
 	}
 
-	skills, discoverErr := agentskills.Discover(s.fs)
-	var fatalErr error
-	eachError(discoverErr, func(e error) {
-		var se *agentskills.SkillError
-		if errors.As(e, &se) {
-			fmt.Fprintf(errW, "warning: %v\n", e)
-			return
-		}
-		if fatalErr == nil {
-			fatalErr = e
-		}
-	})
-	if fatalErr != nil {
-		return fatalErr
-	}
-
-	for _, skill := range skills {
-		dest := filepath.Join(dir, skill.Dir)
-		if !IsManaged(dest) {
-			fmt.Fprintf(out, "%-30s not installed\n", skill.Dir)
-			continue
-		}
-
-		meta, err := ReadMeta(dest)
-		if err != nil {
-			fmt.Fprintf(out, "%-30s installed (metadata unreadable: %v)\n", skill.Dir, err)
-			continue
-		}
-
-		cmp, ok := compareVersionsSafe(meta.Version, s.version)
-		upToDate := (ok && cmp >= 0) || (!ok && meta.Version == s.version)
-		if upToDate {
-			fmt.Fprintf(out, "%-30s installed %s (up to date)\n", skill.Dir, meta.Version)
-		} else {
-			fmt.Fprintf(out, "%-30s installed %s → available %s\n", skill.Dir, meta.Version, s.version)
+	for _, ss := range result.Skills {
+		switch {
+		case !ss.Installed:
+			fmt.Fprintf(out, "%-30s not installed\n", ss.Dir)
+		case ss.MetadataError != nil:
+			fmt.Fprintf(out, "%-30s installed (metadata unreadable: %v)\n", ss.Dir, ss.MetadataError)
+		case ss.UpToDate:
+			fmt.Fprintf(out, "%-30s installed %s (up to date)\n", ss.Dir, ss.InstalledVersion)
+		default:
+			fmt.Fprintf(out, "%-30s installed %s → available %s\n", ss.Dir, ss.InstalledVersion, ss.AvailableVersion)
 		}
 	}
 	return nil

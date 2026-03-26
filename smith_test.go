@@ -288,6 +288,152 @@ func TestSmith_Reinstall(t *testing.T) {
 	}
 }
 
+// Tests for exported operation methods (List, Install, Update, etc.)
+
+func TestSmith_ListAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	skills, err := s.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(skills))
+	}
+	if skills[0].Dir != "demo-skill" {
+		t.Errorf("expected skill dir %q, got %q", "demo-skill", skills[0].Dir)
+	}
+}
+
+func TestSmith_InstallAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	result, err := s.Install(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if len(result.Installed()) != 1 {
+		t.Errorf("expected 1 installed, got %d", len(result.Installed()))
+	}
+
+	// Install again should skip.
+	result, err = s.Install(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Install (second): %v", err)
+	}
+	if len(result.Skipped()) != 1 {
+		t.Errorf("expected 1 skipped, got %d", len(result.Skipped()))
+	}
+}
+
+func TestSmith_InstallAPI_DryRun(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	result, err := s.Install(context.Background(), Options{Prefix: dir, DryRun: true})
+	if err != nil {
+		t.Fatalf("Install dry-run: %v", err)
+	}
+	if len(result.Installed()) != 1 {
+		t.Errorf("expected 1 installed (dry-run), got %d", len(result.Installed()))
+	}
+	// Verify nothing was actually written.
+	if IsManaged(dir + "/demo-skill") {
+		t.Error("skill should not be installed in dry-run mode")
+	}
+}
+
+func TestSmith_UpdateAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	if _, err := s.Install(context.Background(), Options{Prefix: dir}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	// Same version should skip.
+	result, err := s.Update(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if len(result.Skipped()) != 1 {
+		t.Errorf("expected 1 skipped, got %d", len(result.Skipped()))
+	}
+}
+
+func TestSmith_ReinstallAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	if _, err := s.Install(context.Background(), Options{Prefix: dir}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	result, err := s.Reinstall(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Reinstall: %v", err)
+	}
+	if len(result.Installed()) != 1 {
+		t.Errorf("expected 1 reinstalled, got %d", len(result.Installed()))
+	}
+}
+
+func TestSmith_UninstallAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	if _, err := s.Install(context.Background(), Options{Prefix: dir}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	result, err := s.Uninstall(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Uninstall: %v", err)
+	}
+	found := false
+	for _, a := range result.Actions {
+		if a.Action == "uninstalled" && a.Dir == "demo-skill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected 'uninstalled' action for demo-skill")
+	}
+}
+
+func TestSmith_StatusAPI(t *testing.T) {
+	s, _, _ := newTestSmith(t, testSkillFS)
+	dir := t.TempDir()
+
+	// Not installed.
+	result, err := s.Status(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if len(result.Skills) != 1 {
+		t.Fatalf("expected 1 skill status, got %d", len(result.Skills))
+	}
+	if result.Skills[0].Installed {
+		t.Error("expected skill to be not installed")
+	}
+
+	// Install then check.
+	if _, err := s.Install(context.Background(), Options{Prefix: dir}); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	result, err = s.Status(context.Background(), Options{Prefix: dir})
+	if err != nil {
+		t.Fatalf("Status after install: %v", err)
+	}
+	if !result.Skills[0].Installed {
+		t.Error("expected skill to be installed")
+	}
+	if !result.Skills[0].UpToDate {
+		t.Error("expected skill to be up to date")
+	}
+}
+
 // wrappedSkillFS wraps testSkillFS under a "skills/" directory to simulate
 // what //go:embed skills/** produces.
 var wrappedSkillFS = fstest.MapFS{
