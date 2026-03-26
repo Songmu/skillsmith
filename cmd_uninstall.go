@@ -6,17 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-
-	"github.com/Songmu/skillsmith/agentskills"
 )
 
-func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writer) error {
+func (s *Smith) cmdUninstall(ctx context.Context, args []string, out, errW io.Writer) error {
 	f := flag.NewFlagSet("uninstall", flag.ContinueOnError)
 	f.SetOutput(errW)
-	var cf commonFlags
-	addCommonFlags(f, &cf)
+	var opts Options
+	addCommonFlags(f, &opts)
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -24,46 +20,25 @@ func (s *Smith) cmdUninstall(_ context.Context, args []string, out, errW io.Writ
 		return err
 	}
 
-	dir, err := s.installDir(cf)
+	result, err := s.Uninstall(ctx, opts)
 	if err != nil {
 		return err
 	}
 
-	skills, discoverErr := agentskills.Discover(s.fs)
-	var fatalErr error
-	eachError(discoverErr, func(e error) {
-		var se *agentskills.SkillError
-		if errors.As(e, &se) {
-			fmt.Fprintf(errW, "warning: %v\n", e)
-			return
+	for _, a := range result.Actions {
+		switch a.Action {
+		case "uninstalled":
+			if opts.DryRun {
+				fmt.Fprintf(out, "uninstalled (dry-run): %s\n", a.Dir)
+			} else {
+				fmt.Fprintf(out, "uninstalled: %s\n", a.Dir)
+			}
+		case "skipped":
+			fmt.Fprintf(out, "skipped:     %s — %s\n", a.Dir, a.Message)
 		}
-		if fatalErr == nil {
-			fatalErr = e
-		}
-	})
-	if fatalErr != nil {
-		return fatalErr
 	}
 
-	for _, skill := range skills {
-		dest := filepath.Join(dir, skill.Dir)
-		if !IsManaged(dest) {
-			fmt.Fprintf(out, "skipped:     %s — not managed by skillsmith\n", skill.Dir)
-			continue
-		}
-
-		if cf.dryRun {
-			fmt.Fprintf(out, "uninstalled (dry-run): %s\n", skill.Dir)
-			continue
-		}
-
-		if err := os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("uninstalling %q: %w", skill.Dir, err)
-		}
-		fmt.Fprintf(out, "uninstalled: %s\n", skill.Dir)
-	}
-
-	if cf.dryRun {
+	if opts.DryRun {
 		fmt.Fprintln(out, "[dry-run] no changes were made")
 	}
 	return nil

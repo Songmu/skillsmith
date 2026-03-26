@@ -8,11 +8,11 @@ import (
 	"io"
 )
 
-func (s *Smith) cmdUpdate(_ context.Context, args []string, out, errW io.Writer) error {
+func (s *Smith) cmdUpdate(ctx context.Context, args []string, out, errW io.Writer) error {
 	f := flag.NewFlagSet("update", flag.ContinueOnError)
 	f.SetOutput(errW)
-	var cf commonFlags
-	addCommonFlags(f, &cf)
+	var opts Options
+	addCommonFlags(f, &opts)
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -20,18 +20,7 @@ func (s *Smith) cmdUpdate(_ context.Context, args []string, out, errW io.Writer)
 		return err
 	}
 
-	dir, err := s.installDir(cf)
-	if err != nil {
-		return err
-	}
-
-	result, err := CopySkills(s.fs, dir, CopyOptions{
-		Mode:    ModeUpdate,
-		Force:   cf.force,
-		DryRun:  cf.dryRun,
-		Name:    s.name,
-		Version: s.version,
-	})
+	result, err := s.Update(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -39,7 +28,7 @@ func (s *Smith) cmdUpdate(_ context.Context, args []string, out, errW io.Writer)
 	for _, a := range result.Actions {
 		switch a.Action {
 		case "updated":
-			if cf.dryRun {
+			if opts.DryRun {
 				fmt.Fprintf(out, "updated (dry-run): %s\n", a.Dir)
 			} else {
 				fmt.Fprintf(out, "updated:   %s\n", a.Dir)
@@ -51,7 +40,7 @@ func (s *Smith) cmdUpdate(_ context.Context, args []string, out, errW io.Writer)
 		}
 	}
 
-	if cf.dryRun {
+	if opts.DryRun {
 		fmt.Fprintln(out, "[dry-run] no changes were made")
 	}
 	return nil

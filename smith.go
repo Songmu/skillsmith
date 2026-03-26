@@ -8,8 +8,10 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/Songmu/skillsmith/agentskills"
 	"golang.org/x/mod/semver"
 )
 
@@ -147,29 +149,211 @@ func (s *Smith) Run(ctx context.Context, args []string) error {
 	}
 }
 
-// commonFlags holds flags shared by most subcommands.
-type commonFlags struct {
-	dryRun bool
-	prefix string
-	scope  string
-	force  bool
+// Options holds parameters shared by most subcommands.
+// CLI frameworks can populate this struct directly and pass it to
+// the exported operation methods (Install, Update, etc.) without
+// going through Run / flag parsing.
+type Options struct {
+	DryRun bool
+	Prefix string
+	Scope  string
+	Force  bool
 }
 
 // addCommonFlags registers the common flags onto fs.
-func addCommonFlags(f *flag.FlagSet, cf *commonFlags) {
-	f.BoolVar(&cf.dryRun, "dry-run", false, "print what would happen without making changes")
-	f.StringVar(&cf.prefix, "prefix", "", "skill installation directory (overrides --scope)")
-	f.StringVar(&cf.scope, "scope", "", "target scope: user (~/.agents/skills, default) or repo (<repo-root>/.agents/skills)")
-	f.BoolVar(&cf.force, "force", false, "overwrite unmanaged skills")
+func addCommonFlags(f *flag.FlagSet, opts *Options) {
+	f.BoolVar(&opts.DryRun, "dry-run", false, "print what would happen without making changes")
+	f.StringVar(&opts.Prefix, "prefix", "", "skill installation directory (overrides --scope)")
+	f.StringVar(&opts.Scope, "scope", "", "target scope: user (~/.agents/skills, default) or repo (<repo-root>/.agents/skills)")
+	f.BoolVar(&opts.Force, "force", false, "overwrite unmanaged skills")
 }
 
-// installDir returns the effective installation directory for the given flags.
-// --prefix takes precedence; otherwise the directory is derived from --scope.
-func (s *Smith) installDir(cf commonFlags) (string, error) {
-	if cf.prefix != "" {
-		return cf.prefix, nil
+// installDir returns the effective installation directory for the given options.
+// Prefix takes precedence; otherwise the directory is derived from Scope.
+func (s *Smith) installDir(opts Options) (string, error) {
+	if opts.Prefix != "" {
+		return opts.Prefix, nil
 	}
-	return InstallDirForScope(cf.scope)
+	return InstallDirForScope(opts.Scope)
+}
+
+// discoverSkills discovers skills from the embedded filesystem, treating
+// per-skill errors as non-fatal (they are silently skipped) and returning
+// only fatal discovery errors.
+func (s *Smith) discoverSkills() ([]*agentskills.Skill, error) {
+	skills, discoverErr := agentskills.Discover(s.fs)
+	var fatalErr error
+	eachError(discoverErr, func(e error) {
+		var se *agentskills.SkillError
+		if errors.As(e, &se) {
+			return
+		}
+		if fatalErr == nil {
+			fatalErr = e
+		}
+	})
+	return skills, fatalErr
+}
+
+// List returns the discovered skills from the embedded filesystem.
+func (s *Smith) List(ctx context.Context) ([]*agentskills.Skill, error) {
+	return s.discoverSkills()
+}
+
+// Install installs skills that are not yet present.
+func (s *Smith) Install(ctx context.Context, opts Options) (*CopyResult, error) {
+	dir, err := s.installDir(opts)
+	if err != nil {
+		return nil, err
+	}
+	return CopySkills(s.fs, dir, CopyOptions{
+		Mode:    ModeInstall,
+		Force:   opts.Force,
+		DryRun:  opts.DryRun,
+		Name:    s.name,
+		Version: s.version,
+	})
+}
+
+// Update updates managed skills whose version has changed.
+func (s *Smith) Update(ctx context.Context, opts Options) (*CopyResult, error) {
+	dir, err := s.installDir(opts)
+	if err != nil {
+		return nil, err
+	}
+	return CopySkills(s.fs, dir, CopyOptions{
+		Mode:    ModeUpdate,
+		Force:   opts.Force,
+		DryRun:  opts.DryRun,
+		Name:    s.name,
+		Version: s.version,
+	})
+}
+
+// Reinstall reinstalls all managed skills regardless of version.
+func (s *Smith) Reinstall(ctx context.Context, opts Options) (*CopyResult, error) {
+	dir, err := s.installDir(opts)
+	if err != nil {
+		return nil, err
+	}
+	return CopySkills(s.fs, dir, CopyOptions{
+		Mode:    ModeReinstall,
+		Force:   opts.Force,
+		DryRun:  opts.DryRun,
+		Name:    s.name,
+		Version: s.version,
+	})
+}
+
+// Uninstall removes managed skills.
+func (s *Smith) Uninstall(ctx context.Context, opts Options) (*UninstallResult, error) {
+	dir, err := s.installDir(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	skills, err := s.discoverSkills()
+	if err != nil {
+		return nil, err
+	}
+
+	result := &UninstallResult{}
+	for _, skill := range skills {
+		dest := filepath.Join(dir, skill.Dir)
+		if !IsManaged(dest) {
+			result.Actions = append(result.Actions, UninstallAction{
+				Dir:     skill.Dir,
+				Action:  "skipped",
+				Message: "not managed by skillsmith",
+			})
+			continue
+		}
+
+		if opts.DryRun {
+			result.Actions = append(result.Actions, UninstallAction{
+				Dir:    skill.Dir,
+				Action: "uninstalled",
+			})
+			continue
+		}
+
+		if err := os.RemoveAll(dest); err != nil {
+			return result, fmt.Errorf("uninstalling %q: %w", skill.Dir, err)
+		}
+		result.Actions = append(result.Actions, UninstallAction{
+			Dir:    skill.Dir,
+			Action: "uninstalled",
+		})
+	}
+	return result, nil
+}
+
+// UninstallResult summarizes the outcome of an Uninstall call.
+type UninstallResult struct {
+	Actions []UninstallAction
+}
+
+// UninstallAction describes what happened to a single skill during Uninstall.
+type UninstallAction struct {
+	Dir     string
+	Action  string // "uninstalled", "skipped"
+	Message string
+}
+
+// StatusResult summarizes the outcome of a Status call.
+type StatusResult struct {
+	Skills []SkillStatus
+}
+
+// SkillStatus describes the installation status of a single skill.
+type SkillStatus struct {
+	Dir              string
+	Installed        bool
+	InstalledVersion string
+	AvailableVersion string
+	UpToDate         bool
+	MetadataError    error
+}
+
+// Status checks the installation status of skills.
+func (s *Smith) Status(ctx context.Context, opts Options) (*StatusResult, error) {
+	dir, err := s.installDir(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	skills, err := s.discoverSkills()
+	if err != nil {
+		return nil, err
+	}
+
+	result := &StatusResult{}
+	for _, skill := range skills {
+		dest := filepath.Join(dir, skill.Dir)
+		ss := SkillStatus{
+			Dir:              skill.Dir,
+			AvailableVersion: s.version,
+		}
+
+		if !IsManaged(dest) {
+			result.Skills = append(result.Skills, ss)
+			continue
+		}
+
+		ss.Installed = true
+		meta, readErr := ReadMeta(dest)
+		if readErr != nil {
+			ss.MetadataError = readErr
+			result.Skills = append(result.Skills, ss)
+			continue
+		}
+
+		ss.InstalledVersion = meta.Version
+		cmp, ok := compareVersionsSafe(meta.Version, s.version)
+		ss.UpToDate = (ok && cmp >= 0) || (!ok && meta.Version == s.version)
+		result.Skills = append(result.Skills, ss)
+	}
+	return result, nil
 }
 
 func (s *Smith) outWriter() io.Writer {
