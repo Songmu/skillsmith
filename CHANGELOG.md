@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.0](https://github.com/Songmu/skillsmith/compare/v0.0.2...v0.1.0) - 2026-03-26
+- Bump codecov/codecov-action from 5.5.2 to 5.5.3 by @dependabot[bot] in https://github.com/Songmu/skillsmith/pull/14
+- Export individual operation methods for CLI framework integration by @fujiwara in https://github.com/Songmu/skillsmith/pull/15
+
 ## [v0.0.2](https://github.com/Songmu/skillsmith/compare/v0.0.1...v0.0.2) - 2026-03-15
 - Fix go:embed directive and documentation by @Songmu in https://github.com/Songmu/skillsmith/pull/10
 - Fix: use semver comparison in status command by @Songmu in https://github.com/Songmu/skillsmith/pull/12
