@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.1](https://github.com/Songmu/skillsmith/compare/v0.1.0...v0.1.1) - 2026-04-13
+- Bump Songmu/tagpr from 1.17.1 to 1.18.1 by @dependabot[bot] in https://github.com/Songmu/skillsmith/pull/20
+
 ## [v0.1.0](https://github.com/Songmu/skillsmith/compare/v0.0.2...v0.1.0) - 2026-03-26
 - Bump codecov/codecov-action from 5.5.2 to 5.5.3 by @dependabot[bot] in https://github.com/Songmu/skillsmith/pull/14
 - Export individual operation methods for CLI framework integration by @fujiwara in https://github.com/Songmu/skillsmith/pull/15
