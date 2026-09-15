@@ -25,6 +25,6 @@ jobs:
       with:
         persist-credentials: false
     - name: tagpr
-      uses: Songmu/tagpr@9d0f650553240dab1fa907eca27e3fd5b586e538 # v1.18.1
+      uses: Songmu/tagpr@e84001bd5dac8defa0c75b3913937d284a3b3660 # v1.20.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
