@@ -2,6 +2,7 @@ package agentskills
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -14,14 +15,14 @@ type Skill struct {
 	Name string
 	// Description is the skill description from frontmatter.
 	Description string
-	// License is the SPDX license identifier from frontmatter.
+	// License is the license name or bundled license reference from frontmatter.
 	License string
-	// Compatibility lists agent compatibility strings from frontmatter.
-	Compatibility []string
+	// Compatibility describes environment requirements from frontmatter.
+	Compatibility string
 	// Metadata holds arbitrary client-extension metadata from frontmatter.
 	Metadata map[string]any
-	// AllowedTools lists permitted tool names from frontmatter.
-	AllowedTools []string
+	// AllowedTools is the space-separated tool pattern string from frontmatter.
+	AllowedTools string
 	// Body is the Markdown body after the closing frontmatter delimiter.
 	Body string
 	// Dir is the directory name of the skill (set by Discover).
@@ -30,12 +31,13 @@ type Skill struct {
 
 // frontmatter holds the raw YAML fields parsed from the SKILL.md header.
 type frontmatter struct {
-	Name          string         `yaml:"name"`
-	Description   string         `yaml:"description"`
-	License       string         `yaml:"license"`
-	Compatibility []string       `yaml:"compatibility"`
-	Metadata      map[string]any `yaml:"metadata"`
-	AllowedTools  []string       `yaml:"allowed_tools"`
+	Name               string         `yaml:"name"`
+	Description        string         `yaml:"description"`
+	License            string         `yaml:"license"`
+	Compatibility      any            `yaml:"compatibility"`
+	Metadata           map[string]any `yaml:"metadata"`
+	AllowedTools       any            `yaml:"allowed-tools"`
+	LegacyAllowedTools any            `yaml:"allowed_tools"`
 }
 
 // Parse reads a SKILL.md file from r and returns a Skill.
@@ -57,16 +59,50 @@ func Parse(r io.Reader) (*Skill, error) {
 		return nil, err
 	}
 
+	compatibility, err := normalizeStringField(fm.Compatibility, ", ")
+	if err != nil {
+		return nil, fmt.Errorf("compatibility: %w", err)
+	}
+	allowedToolsValue := fm.AllowedTools
+	if allowedToolsValue == nil {
+		allowedToolsValue = fm.LegacyAllowedTools
+	}
+	allowedTools, err := normalizeStringField(allowedToolsValue, " ")
+	if err != nil {
+		return nil, fmt.Errorf("allowed-tools: %w", err)
+	}
+
 	s := &Skill{
 		Name:          fm.Name,
 		Description:   fm.Description,
 		License:       fm.License,
-		Compatibility: fm.Compatibility,
+		Compatibility: compatibility,
 		Metadata:      fm.Metadata,
-		AllowedTools:  fm.AllowedTools,
+		AllowedTools:  allowedTools,
 		Body:          body,
 	}
 	return s, nil
+}
+
+func normalizeStringField(value any, separator string) (string, error) {
+	switch value := value.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return value, nil
+	case []any:
+		values := make([]string, len(value))
+		for i, item := range value {
+			text, ok := item.(string)
+			if !ok {
+				return "", fmt.Errorf("list item %d must be a string", i)
+			}
+			values[i] = text
+		}
+		return strings.Join(values, separator), nil
+	default:
+		return "", fmt.Errorf("must be a string")
+	}
 }
 
 // splitFrontmatter splits the raw content of a SKILL.md into the YAML bytes

@@ -9,11 +9,8 @@ const validSKILL = `---
 name: mytool-cli
 description: A helpful CLI skill
 license: MIT
-compatibility:
-  - claude
-  - codex
-allowed_tools:
-  - Bash
+compatibility: Requires Claude Code or Codex
+allowed-tools: Bash Read
 ---
 
 # mytool-cli
@@ -77,11 +74,11 @@ body
 				if s.License != "MIT" {
 					t.Errorf("License = %q, want %q", s.License, "MIT")
 				}
-				if len(s.Compatibility) != 2 || s.Compatibility[0] != "claude" {
-					t.Errorf("Compatibility = %v, want [claude codex]", s.Compatibility)
+				if s.Compatibility != "Requires Claude Code or Codex" {
+					t.Errorf("Compatibility = %q, want %q", s.Compatibility, "Requires Claude Code or Codex")
 				}
-				if len(s.AllowedTools) != 1 || s.AllowedTools[0] != "Bash" {
-					t.Errorf("AllowedTools = %v, want [Bash]", s.AllowedTools)
+				if s.AllowedTools != "Bash Read" {
+					t.Errorf("AllowedTools = %q, want %q", s.AllowedTools, "Bash Read")
 				}
 				if !strings.Contains(s.Body, "mytool-cli") {
 					t.Errorf("Body does not contain expected content, got: %q", s.Body)
@@ -106,6 +103,28 @@ body
 				}
 				if s.Metadata["key"] != "value" {
 					t.Errorf("Metadata[key] = %v, want \"value\"", s.Metadata["key"])
+				}
+			},
+		},
+		{
+			name: "legacy_list_fields",
+			input: `---
+name: foo
+description: bar
+compatibility:
+  - claude
+  - codex
+allowed_tools:
+  - Bash
+  - Read
+---
+`,
+			checkSkill: func(t *testing.T, s *Skill) {
+				if s.Compatibility != "claude, codex" {
+					t.Errorf("Compatibility = %q, want %q", s.Compatibility, "claude, codex")
+				}
+				if s.AllowedTools != "Bash Read" {
+					t.Errorf("AllowedTools = %q, want %q", s.AllowedTools, "Bash Read")
 				}
 			},
 		},

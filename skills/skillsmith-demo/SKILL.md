@@ -2,13 +2,8 @@
 name: skillsmith-demo
 description: Learn how to use skillsmith to distribute agent skills with your CLI
 license: MIT
-compatibility:
-  - claude
-  - codex
-  - agents
-allowed_tools:
-  - Bash
-  - Read
+compatibility: Requires an Agent Skills-compatible client
+allowed-tools: Bash Read
 ---
 
 # skillsmith-demo
